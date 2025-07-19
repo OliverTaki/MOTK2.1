@@ -17,16 +17,18 @@ declare global {
 /**
  * Authentication middleware - Verifies JWT token and sets user context
  */
-export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
     if (!token) {
       return res.status(401).json({
-        success: false,
-        error: 'Access token required',
-        code: 'NO_TOKEN'
+        error: 'Access token required'
       });
     }
 
@@ -40,14 +42,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       name: decoded.name
     };
 
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid or expired token',
-      code: 'INVALID_TOKEN'
-    });
+    return next(); // ★ 必ず return
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
   }
 };
 
@@ -83,15 +80,17 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
 /**
  * Session validation middleware - Validates and refreshes session if needed
  */
-export const validateSession = async (req: Request, res: Response, next: NextFunction) => {
+export const validateSession = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
     const sessionData = req.body.session || req.headers['x-session-data'];
-    
+
     if (!sessionData) {
       return res.status(401).json({
-        success: false,
-        error: 'Session data required',
-        code: 'NO_SESSION'
+        error: 'Session data required'
       });
     }
 
@@ -100,9 +99,7 @@ export const validateSession = async (req: Request, res: Response, next: NextFun
 
     if (!validation.valid) {
       return res.status(401).json({
-        success: false,
-        error: 'Invalid or expired session',
-        code: 'INVALID_SESSION'
+        error: 'Invalid or expired session'
       });
     }
 
@@ -111,23 +108,17 @@ export const validateSession = async (req: Request, res: Response, next: NextFun
       req.user = {
         userId: validation.user.id,
         email: validation.user.email,
-        name: validation.user.name
+        name: validation.user.name ?? '', // ← fallback
       };
     }
 
-    // If tokens were refreshed, include them in response
     if (validation.newTokens) {
       res.locals.newTokens = validation.newTokens;
     }
 
-    next();
-  } catch (error) {
-    console.error('Session validation error:', error);
-    return res.status(401).json({
-      success: false,
-      error: 'Session validation failed',
-      code: 'SESSION_ERROR'
-    });
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid session' });
   }
 };
 
@@ -135,32 +126,19 @@ export const validateSession = async (req: Request, res: Response, next: NextFun
  * Role-based authorization middleware
  */
 export const requireRole = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): Response | void => {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-        code: 'NO_AUTH'
-      });
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // For now, we'll implement basic role checking
-    // In a full implementation, you'd check user roles from database
     const userRoles = ['user']; // Default role
-    
     const hasRequiredRole = roles.some(role => userRoles.includes(role));
-    
+
     if (!hasRequiredRole) {
-      return res.status(403).json({
-        success: false,
-        error: 'Insufficient permissions',
-        code: 'INSUFFICIENT_PERMISSIONS',
-        required: roles,
-        current: userRoles
-      });
+      return res.status(403).json({ error: 'Forbidden' });
     }
 
-    next();
+    return next(); // ★ 必ず return
   };
 };
 
@@ -172,22 +150,11 @@ export const requireAdmin = requireRole(['admin']);
 /**
  * Error handler for authentication errors
  */
-export const authErrorHandler = (error: any, req: Request, res: Response, next: NextFunction) => {
-  if (error.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid token',
-      code: 'INVALID_TOKEN'
-    });
-  }
-
-  if (error.name === 'TokenExpiredError') {
-    return res.status(401).json({
-      success: false,
-      error: 'Token expired',
-      code: 'TOKEN_EXPIRED'
-    });
-  }
-
-  next(error);
+export const authErrorHandler = (
+  error: any,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Response | void => {
+  return res.status(401).json({ error: error.message || 'Auth error' });
 };

@@ -1,29 +1,32 @@
 /**
- * Shared type definitions for MOTK system
+ * Shared type definitions for MOTK system – V4
+ * Added `lastLoginAt` camelCase alias for auth service.
  */
 
-// Entity Types
+// =============================
+// Entity & status definitions
+// =============================
+
 export type EntityType = 'shot' | 'asset' | 'task' | 'member' | 'user';
 
 export const ENTITY_KIND = {
-  SHOT: 'shot' as const,
-  ASSET: 'asset' as const,
-  TASK: 'task' as const,
-  MEMBER: 'member' as const,
-  USER: 'user' as const
+  SHOT: 'shot',
+  ASSET: 'asset',
+  TASK: 'task',
+  MEMBER: 'member',
+  USER: 'user',
 } as const;
 
-// Backward compatibility aliases - will be removed in future versions
+// Back‑compat aliases (deprecated)
 export const EntityType = ENTITY_KIND;
 export const EntityTypes = ENTITY_KIND;
 
-// Status Types
 export enum ShotStatus {
   NOT_STARTED = 'not_started',
   IN_PROGRESS = 'in_progress',
   REVIEW = 'review',
   APPROVED = 'approved',
-  COMPLETED = 'completed'
+  COMPLETED = 'completed',
 }
 
 export enum AssetStatus {
@@ -31,7 +34,7 @@ export enum AssetStatus {
   IN_PROGRESS = 'in_progress',
   REVIEW = 'review',
   APPROVED = 'approved',
-  COMPLETED = 'completed'
+  COMPLETED = 'completed',
 }
 
 export enum TaskStatus {
@@ -39,7 +42,7 @@ export enum TaskStatus {
   IN_PROGRESS = 'in_progress',
   BLOCKED = 'blocked',
   REVIEW = 'review',
-  COMPLETED = 'completed'
+  COMPLETED = 'completed',
 }
 
 export enum AssetType {
@@ -47,10 +50,13 @@ export enum AssetType {
   PROP = 'prop',
   ENVIRONMENT = 'environment',
   EFFECT = 'effect',
-  OTHER = 'other'
+  OTHER = 'other',
 }
 
-// Field Types
+// =============================
+// Field & page type definitions
+// =============================
+
 export enum FieldType {
   TEXT = 'text',
   SELECT = 'select',
@@ -65,39 +71,49 @@ export enum FieldType {
   LINK_ASSET = 'link_asset',
   LINK_TASK = 'link_task',
   LINK_MEMBER = 'link_member',
-  LINK_USER = 'link_user'
+  LINK_USER = 'link_user',
 }
 
-/** ユーザー情報 */
+// =============================
+// Authentication & user types
+// =============================
+
 export interface User {
-  id: string;                // ← 追加
+  id: string;
   email: string;
-  name?: string;
-  picture?: string;          // ← 追加
+  name?: string | undefined;
+  picture?: string;
+  verified_email?: boolean;
+  locale?: string;
   google_id?: string;
   avatar_url?: string;
+  // legacy camelCase timestamps
+  createdAt?: Date;
+  lastLoginAt?: Date;
+  // preferred snake_case timestamps
   created_date?: Date;
   last_login?: Date;
 }
 
-/** 認証トークン */
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
-  expiryDate: string | number;   // ← 追加
-  tokenType: string;             // ← 追加 ("Bearer" など)
+  expiryDate: string | number;
+  tokenType: string;
 }
 
-/** 認証関連の設定 */
 export interface AuthConfig {
   jwtSecret: string;
-  jwtExpiresIn: string | number;     // ← 型を union に
-  googleClientId: string;            // ← 追加
-  googleClientSecret: string;        // ← 追加
-  redirectUri: string;               // ← 追加
+  jwtExpiresIn: string | number;
+  googleClientId: string;
+  googleClientSecret: string;
+  redirectUri: string;
 }
 
-// API Response Types
+// =============================
+// Generic API response wrapper
+// =============================
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -105,7 +121,10 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-// File Reference Types
+// =============================
+// Storage‑related types (unchanged)
+// =============================
+
 export interface FileReference {
   id: string;
   name: string;
@@ -121,7 +140,6 @@ export interface VersionReference {
   versions: FileReference[];
 }
 
-// Project Configuration
 export interface ProjectConfig {
   project_id: string;
   storage_provider: 'gdrive' | 'box';
@@ -130,7 +148,6 @@ export interface ProjectConfig {
   created_at: Date;
 }
 
-// Cell Update Parameters
 export interface CellUpdateParams {
   sheetName: string;
   entityId: string;
@@ -140,11 +157,10 @@ export interface CellUpdateParams {
   force?: boolean;
 }
 
-// Conflict Resolution
 export enum ResolutionChoice {
   OVERWRITE = 'overwrite',
   EDIT_AGAIN = 'edit_again',
-  KEEP_SERVER = 'keep_server'
+  KEEP_SERVER = 'keep_server',
 }
 
 export interface ConflictData {
@@ -155,7 +171,6 @@ export interface ConflictData {
   entityId: string;
 }
 
-// Storage Provider Types
 export interface FolderInfo {
   id: string;
   name: string;
@@ -191,7 +206,13 @@ export interface EntityFolderStructure {
   proxiesUrl: string;
 }
 
-// Proxy Generation Types
+export enum ProxyJobStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
 export interface ProxyGenerationJob {
   id: string;
   entityType: EntityType;
@@ -206,18 +227,11 @@ export interface ProxyGenerationJob {
   progress?: number;
 }
 
-export enum ProxyJobStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed'
-}
-
 export interface ProxyGenerationOptions {
-  resolution: string; // e.g., '1920x1080'
-  bitrate: string; // e.g., '1M'
-  format: string; // e.g., 'mp4'
-  codec: string; // e.g., 'libx264'
+  resolution: string;
+  bitrate: string;
+  format: string;
+  codec: string;
 }
 
 export interface ProxyInfo {
@@ -227,7 +241,10 @@ export interface ProxyInfo {
   generatedAt: Date;
 }
 
-// Entity Interfaces
+// =============================
+// Core entity models (unchanged)
+// =============================
+
 export interface Shot {
   shot_id: string;
   episode?: string;
@@ -282,10 +299,8 @@ export interface ProjectMember {
   active: boolean;
 }
 
-// Entity Data Type Union
 export type EntityData = Shot | Asset | Task | ProjectMember | User;
 
-// Entity Query Parameters
 export interface EntityQueryParams {
   entityType: EntityType;
   filters?: Record<string, any>;
@@ -297,7 +312,6 @@ export interface EntityQueryParams {
   offset?: number;
 }
 
-// Page Configuration Types
 export enum PageType {
   TABLE = 'table',
   OVERVIEW = 'overview',
@@ -307,7 +321,7 @@ export enum PageType {
   SCHEDULE = 'schedule',
   CHAT = 'chat',
   FORUM = 'forum',
-  MEMBER_DETAIL = 'member_detail'
+  MEMBER_DETAIL = 'member_detail',
 }
 
 export interface PageConfig {
@@ -332,7 +346,6 @@ export interface PageConfigData {
   };
 }
 
-// Entity Operation Results
 export interface EntityOperationResult<T = EntityData> {
   success: boolean;
   data?: T;

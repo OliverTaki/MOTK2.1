@@ -8,11 +8,11 @@ import { User, AuthTokens, AuthConfig } from '../../../shared/types';
 export class AuthenticationService {
   private oauth2Client: any;
   private jwtSecret: string;
-  private jwtExpiresIn: string;
+  private jwtExpiresIn: string | number = '24h'; // ← union 型に修正
 
   constructor(config: AuthConfig) {
     this.jwtSecret = config.jwtSecret || process.env.JWT_SECRET || 'default-secret-key';
-    this.jwtExpiresIn = config.jwtExpiresIn || '24h';
+    this.jwtExpiresIn = config.jwtExpiresIn ?? '24h'; // ← union 型でエラー解消
 
     // Initialize Google OAuth2 client
     this.oauth2Client = new google.auth.OAuth2(
@@ -92,9 +92,9 @@ export class AuthenticationService {
       iat: Math.floor(Date.now() / 1000)
     };
 
-    // Cast secret to Secret type for jwt.sign
+    // jwt.sign の secret を Secret 型にキャスト
     return jwt.sign(payload, this.jwtSecret as Secret, {
-      expiresIn: this.jwtExpiresIn,
+      expiresIn: this.jwtExpiresIn as any, // ← 型警告を回避
     });
   }
 
