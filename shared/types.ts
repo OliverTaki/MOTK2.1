@@ -68,19 +68,34 @@ export enum FieldType {
   LINK_USER = 'link_user'
 }
 
-  export interface AuthTokens {
-    accessToken: string;
-    refreshToken: string;
-    /** トークン失効日時 (ISO 文字列か epoch 秒) */
-    expiryDate: string | number;
-    /** トークン種別。通常 "Bearer" 固定 */
-    tokenType: string;
-  }
+/** ユーザー情報 */
+export interface User {
+  id: string;                // ← 追加
+  email: string;
+  name?: string;
+  picture?: string;          // ← 追加
+  google_id?: string;
+  avatar_url?: string;
+  created_date?: Date;
+  last_login?: Date;
+}
 
-  export interface AuthConfig {            // ← 追加
-    jwtSecret: string;
-    jwtExpiresIn: string | number; // '1h' など
-  }
+/** 認証トークン */
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiryDate: string | number;   // ← 追加
+  tokenType: string;             // ← 追加 ("Bearer" など)
+}
+
+/** 認証関連の設定 */
+export interface AuthConfig {
+  jwtSecret: string;
+  jwtExpiresIn: string | number;     // ← 型を union に
+  googleClientId: string;            // ← 追加
+  googleClientSecret: string;        // ← 追加
+  redirectUri: string;               // ← 追加
+}
 
 // API Response Types
 export interface ApiResponse<T> {
@@ -265,17 +280,6 @@ export interface ProjectMember {
   permissions: 'edit' | 'view' | 'admin';
   joined_date: Date;
   active: boolean;
-}
-
-export interface User {
-  user_id: string;
-  id: string;   
-  email: string;
-  name: string;
-  google_id: string;
-  avatar_url?: string;
-  created_date: Date;
-  last_login?: Date;
 }
 
 // Entity Data Type Union

@@ -92,6 +92,7 @@ export class AuthenticationService {
       iat: Math.floor(Date.now() / 1000)
     };
 
+    // Cast secret to Secret type for jwt.sign
     return jwt.sign(payload, this.jwtSecret as Secret, {
       expiresIn: this.jwtExpiresIn,
     });
