@@ -68,10 +68,13 @@ export enum FieldType {
   LINK_USER = 'link_user'
 }
 
-  export interface AuthTokens {            // ← 追加
+  export interface AuthTokens {
     accessToken: string;
     refreshToken: string;
-    expiresAt: number;     // epoch 秒
+    /** トークン失効日時 (ISO 文字列か epoch 秒) */
+    expiryDate: string | number;
+    /** トークン種別。通常 "Bearer" 固定 */
+    tokenType: string;
   }
 
   export interface AuthConfig {            // ← 追加
