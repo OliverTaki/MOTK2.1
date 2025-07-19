@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { Secret } from 'jsonwebtoken';
 import { google } from 'googleapis';
 import { User, AuthTokens, AuthConfig } from '../../../shared/types';
 
@@ -92,7 +92,9 @@ export class AuthenticationService {
       iat: Math.floor(Date.now() / 1000)
     };
 
-    return jwt.sign(payload, this.jwtSecret, { expiresIn: this.jwtExpiresIn });
+    return jwt.sign(payload, this.jwtSecret as Secret, {
+      expiresIn: this.jwtExpiresIn,
+    });
   }
 
   /**

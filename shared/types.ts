@@ -68,6 +68,17 @@ export enum FieldType {
   LINK_USER = 'link_user'
 }
 
+  export interface AuthTokens {            // ← 追加
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;     // epoch 秒
+  }
+
+  export interface AuthConfig {            // ← 追加
+    jwtSecret: string;
+    jwtExpiresIn: string | number; // '1h' など
+  }
+
 // API Response Types
 export interface ApiResponse<T> {
   success: boolean;
@@ -255,6 +266,7 @@ export interface ProjectMember {
 
 export interface User {
   user_id: string;
+  id: string;   
   email: string;
   name: string;
   google_id: string;
