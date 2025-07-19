@@ -1,0 +1,574 @@
+paths:
+  /sheets/{sheetName}:
+    get:
+      tags:
+        - Sheets
+      summary: Get sheet data
+      description: Retrieves data from a specific Google Sheet
+      operationId: getSheetData
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet to retrieve
+          required: true
+          schema:
+            type: string
+        - name: range
+          in: query
+          description: Optional range to retrieve (e.g., 'A1:D10')
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/SheetData'
+                  message:
+                    type: string
+                    example: "Retrieved data from sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets/{sheetName}/cell:
+    put:
+      tags:
+        - Sheets
+      summary: Update single cell
+      description: Updates a single cell in a Google Sheet with conflict detection
+      operationId: updateCell
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entityId:
+                  type: string
+                  description: ID of the entity (row)
+                  example: 'shot_123456'
+                fieldId:
+                  type: string
+                  description: ID of the field (column)
+                  example: 'status'
+                originalValue:
+                  type: string
+                  description: Original value for conflict detection
+                  example: 'not_started'
+                newValue:
+                  type: string
+                  description: New value to set
+                  example: 'in_progress'
+                force:
+                  type: boolean
+                  description: Force update even if conflict detected
+                  example: false
+              required:
+                - entityId
+                - fieldId
+                - newValue
+      responses:
+        '200':
+          description: Successful update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      conflict:
+                        type: boolean
+                        example: false
+                      currentValue:
+                        type: string
+                        example: 'in_progress'
+                  message:
+                    type: string
+                    example: "Successfully updated cell in sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets/{sheetName}/batch:
+    post:
+      tags:
+        - Sheets
+      summary: Batch update cells
+      description: Updates multiple cells in a Google Sheet with conflict detection
+      operationId: batchUpdate
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                        description: ID of the entity (row)
+                        example: 'shot_123456'
+                      fieldId:
+                        type: string
+                        description: ID of the field (column)
+                        example: 'status'
+                      originalValue:
+                        type: string
+                        description: Original value for conflict detection
+                        example: 'not_started'
+                      newValue:
+                        type: string
+                        description: New value to set
+                        example: 'in_progress'
+                      force:
+                        type: boolean
+                        description: Force update even if conflict detected
+                        example: false
+                    required:
+                      - entityId
+                      - fieldId
+                      - newValue
+              required:
+                - updates
+      responses:
+        '200':
+          description: Successful batch update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                              example: 'shot_123456'
+                            fieldId:
+                              type: string
+                              example: 'status'
+                            success:
+                              type: boolean
+                              example: true
+                            conflict:
+                              type: boolean
+                              example: false
+                      conflicts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                              example: 'shot_789012'
+                            fieldId:
+                              type: string
+                              example: 'title'
+                            originalValue:
+                              type: string
+                              example: 'Old Title'
+                            currentValue:
+                              type: string
+                              example: 'Updated Title'
+                            newValue:
+                              type: string
+                              example: 'New Title'
+                      totalUpdated:
+                        type: number
+                        example: 5
+                  message:
+                    type: string
+                    example: "Successfully updated 5 cells in sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflicts detected in batch update
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: 'Conflicts detected in batch update'
+                  message:
+                    type: string
+                    example: '2 conflicts found'
+                  data:
+                    type: object
+                    properties:
+                      conflicts:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            fieldId:
+                              type: string
+                            originalValue:
+                              type: string
+                            currentValue:
+                              type: string
+                            newValue:
+                              type: string
+                      results:
+                        type: array
+                        items:
+                          type: object
+                      totalUpdated:
+                        type: number
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets/{sheetName}/info:
+    get:
+      tags:
+        - Sheets
+      summary: Get sheet metadata
+      description: Retrieves metadata about a specific Google Sheet
+      operationId: getSheetInfo
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      sheetName:
+                        type: string
+                        example: 'Shots'
+                      rowCount:
+                        type: number
+                        example: 100
+                      spreadsheetTitle:
+                        type: string
+                        example: 'Project XYZ'
+                      totalSheets:
+                        type: number
+                        example: 9
+                  message:
+                    type: string
+                    example: "Retrieved info for sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets:
+    post:
+      tags:
+        - Sheets
+      summary: Create new sheet
+      description: Creates a new sheet in the Google Spreadsheet
+      operationId: createSheet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sheetName:
+                  type: string
+                  description: Name of the new sheet
+                  example: 'CustomSheet'
+                headers:
+                  type: array
+                  description: Column headers for the new sheet
+                  items:
+                    type: string
+                  example: ['id', 'name', 'status', 'notes']
+              required:
+                - sheetName
+                - headers
+      responses:
+        '201':
+          description: Sheet created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      sheetName:
+                        type: string
+                        example: 'CustomSheet'
+                      headers:
+                        type: array
+                        items:
+                          type: string
+                        example: ['id', 'name', 'status', 'notes']
+                  message:
+                    type: string
+                    example: "Successfully created sheet 'CustomSheet'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Sheet already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets/{sheetName}/data:
+    delete:
+      tags:
+        - Sheets
+      summary: Clear sheet data
+      description: Clears all data from a sheet while keeping headers
+      operationId: clearSheetData
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet to clear
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sheet data cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Successfully cleared data from sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /sheets/{sheetName}/rows:
+    post:
+      tags:
+        - Sheets
+      summary: Append rows to sheet
+      description: Appends multiple rows of data to a sheet
+      operationId: appendRows
+      parameters:
+        - name: sheetName
+          in: path
+          description: Name of the sheet to append to
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                values:
+                  type: array
+                  description: Array of row data to append
+                  items:
+                    type: array
+                    items:
+                      type: string
+                  example: [
+                    ['shot_123', 'Shot 1', 'in_progress'],
+                    ['shot_124', 'Shot 2', 'not_started']
+                  ]
+              required:
+                - values
+      responses:
+        '200':
+          description: Rows appended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      rowsAppended:
+                        type: number
+                        example: 2
+                      updatedRange:
+                        type: string
+                        example: 'Shots!A2:C3'
+                  message:
+                    type: string
+                    example: "Successfully appended 2 rows to sheet 'Shots'"
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          description: Unable to connect to Google Sheets API
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

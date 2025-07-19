@@ -1,0 +1,399 @@
+paths:
+  /members:
+    get:
+      tags:
+        - Members
+      summary: List all project members
+      description: Retrieves a list of all members in the project
+      operationId: listMembers
+      parameters:
+        - name: department
+          in: query
+          description: Filter by department
+          required: false
+          schema:
+            type: string
+        - name: role
+          in: query
+          description: Filter by role
+          required: false
+          schema:
+            type: string
+        - name: active
+          in: query
+          description: Filter by active status
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectMember'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      tags:
+        - Members
+      summary: Add a new project member
+      description: Adds a new member to the project
+      operationId: addMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  description: ID of the user to add
+                  example: 'usr_123456'
+                role:
+                  type: string
+                  description: Role in the project
+                  example: 'Animator'
+                department:
+                  type: string
+                  description: Department
+                  example: 'ANIMATION'
+                permissions:
+                  type: string
+                  description: Permission level
+                  enum: ['edit', 'view', 'admin']
+                  example: 'edit'
+              required:
+                - user_id
+                - role
+                - department
+                - permissions
+      responses:
+        '201':
+          description: Member added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectMember'
+                  message:
+                    type: string
+                    example: 'Member added successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: User is already a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /members/{memberId}:
+    get:
+      tags:
+        - Members
+      summary: Get member details
+      description: Retrieves details for a specific project member
+      operationId: getMember
+      parameters:
+        - name: memberId
+          in: path
+          description: ID of the member
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectMember'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    put:
+      tags:
+        - Members
+      summary: Update member details
+      description: Updates details for an existing project member
+      operationId: updateMember
+      parameters:
+        - name: memberId
+          in: path
+          description: ID of the member
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  description: Role in the project
+                  example: 'Senior Animator'
+                department:
+                  type: string
+                  description: Department
+                  example: 'ANIMATION'
+                permissions:
+                  type: string
+                  description: Permission level
+                  enum: ['edit', 'view', 'admin']
+                  example: 'edit'
+                active:
+                  type: boolean
+                  description: Whether the member is active
+                  example: true
+      responses:
+        '200':
+          description: Member updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectMember'
+                  message:
+                    type: string
+                    example: 'Member updated successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Members
+      summary: Remove a member
+      description: Removes a member from the project
+      operationId: removeMember
+      parameters:
+        - name: memberId
+          in: path
+          description: ID of the member
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Member removed successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /members/{memberId}/deactivate:
+    post:
+      tags:
+        - Members
+      summary: Deactivate a member
+      description: Deactivates a member without removing them from the project
+      operationId: deactivateMember
+      parameters:
+        - name: memberId
+          in: path
+          description: ID of the member
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectMember'
+                  message:
+                    type: string
+                    example: 'Member deactivated successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /members/{memberId}/activate:
+    post:
+      tags:
+        - Members
+      summary: Activate a member
+      description: Activates a previously deactivated member
+      operationId: activateMember
+      parameters:
+        - name: memberId
+          in: path
+          description: ID of the member
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectMember'
+                  message:
+                    type: string
+                    example: 'Member activated successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /members/invite:
+    post:
+      tags:
+        - Members
+      summary: Invite a new member
+      description: Sends an invitation to join the project
+      operationId: inviteMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email address of the person to invite
+                  example: 'user@example.com'
+                role:
+                  type: string
+                  description: Role in the project
+                  example: 'Animator'
+                department:
+                  type: string
+                  description: Department
+                  example: 'ANIMATION'
+                permissions:
+                  type: string
+                  description: Permission level
+                  enum: ['edit', 'view', 'admin']
+                  example: 'edit'
+                message:
+                  type: string
+                  description: Optional message to include in the invitation
+                  example: 'Please join our project!'
+              required:
+                - email
+                - role
+                - department
+                - permissions
+      responses:
+        '200':
+          description: Invitation sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      invitationId:
+                        type: string
+                        example: 'inv_123456'
+                      email:
+                        type: string
+                        example: 'user@example.com'
+                      expiresAt:
+                        type: string
+                        format: 'date-time'
+                  message:
+                    type: string
+                    example: 'Invitation sent successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'

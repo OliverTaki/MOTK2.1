@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "name": "motk-system",
+  "builds": [
+    {
+      "src": "api/server.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["api/**", "shared/**"]
+      }
+    },
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/server.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "api/server.ts": {
+      "maxDuration": 30
+    }
+  }
+}

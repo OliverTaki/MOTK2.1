@@ -1,0 +1,343 @@
+paths:
+  /logs:
+    get:
+      tags:
+        - Logs
+      summary: Get system logs
+      description: Retrieves system logs with optional filtering
+      operationId: getLogs
+      parameters:
+        - name: level
+          in: query
+          description: Filter by log level
+          required: false
+          schema:
+            type: string
+            enum: ['info', 'warning', 'error', 'debug']
+        - name: startDate
+          in: query
+          description: Filter logs from this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Filter logs until this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: user
+          in: query
+          description: Filter by user ID
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Filter by action type
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of logs to return
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Number of logs to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        log_id:
+                          type: string
+                          example: 'log_123456'
+                        timestamp:
+                          type: string
+                          format: date-time
+                        level:
+                          type: string
+                          enum: ['info', 'warning', 'error', 'debug']
+                          example: 'info'
+                        user_id:
+                          type: string
+                          example: 'usr_123456'
+                        action:
+                          type: string
+                          example: 'entity_update'
+                        details:
+                          type: object
+                          additionalProperties: true
+                          example: {
+                            'entityType': 'shot',
+                            'entityId': 'shot_123456',
+                            'field': 'status',
+                            'oldValue': 'not_started',
+                            'newValue': 'in_progress'
+                          }
+                        message:
+                          type: string
+                          example: 'User updated shot status'
+                  total:
+                    type: number
+                    example: 500
+                  offset:
+                    type: number
+                    example: 0
+                  limit:
+                    type: number
+                    example: 100
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      tags:
+        - Logs
+      summary: Create a log entry
+      description: Creates a new log entry in the system
+      operationId: createLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                level:
+                  type: string
+                  description: Log level
+                  enum: ['info', 'warning', 'error', 'debug']
+                  example: 'info'
+                action:
+                  type: string
+                  description: Action being logged
+                  example: 'entity_update'
+                details:
+                  type: object
+                  description: Additional details about the action
+                  additionalProperties: true
+                  example: {
+                    'entityType': 'shot',
+                    'entityId': 'shot_123456',
+                    'field': 'status',
+                    'oldValue': 'not_started',
+                    'newValue': 'in_progress'
+                  }
+                message:
+                  type: string
+                  description: Human-readable log message
+                  example: 'User updated shot status'
+              required:
+                - level
+                - action
+                - message
+      responses:
+        '201':
+          description: Log entry created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      log_id:
+                        type: string
+                        example: 'log_123456'
+                      timestamp:
+                        type: string
+                        format: date-time
+                  message:
+                    type: string
+                    example: 'Log entry created successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /logs/export:
+    get:
+      tags:
+        - Logs
+      summary: Export logs
+      description: Exports logs to a downloadable file
+      operationId: exportLogs
+      parameters:
+        - name: format
+          in: query
+          description: Export format
+          required: false
+          schema:
+            type: string
+            enum: ['csv', 'json']
+            default: 'csv'
+        - name: level
+          in: query
+          description: Filter by log level
+          required: false
+          schema:
+            type: string
+            enum: ['info', 'warning', 'error', 'debug']
+        - name: startDate
+          in: query
+          description: Filter logs from this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Filter logs until this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: user
+          in: query
+          description: Filter by user ID
+          required: false
+          schema:
+            type: string
+        - name: action
+          in: query
+          description: Filter by action type
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /logs/stats:
+    get:
+      tags:
+        - Logs
+      summary: Get log statistics
+      description: Retrieves statistics about system logs
+      operationId: getLogStats
+      parameters:
+        - name: startDate
+          in: query
+          description: Filter logs from this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          description: Filter logs until this date (ISO format)
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: groupBy
+          in: query
+          description: Group statistics by field
+          required: false
+          schema:
+            type: string
+            enum: ['level', 'action', 'user', 'day', 'week', 'month']
+            default: 'day'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      totalCount:
+                        type: number
+                        example: 1250
+                      byLevel:
+                        type: object
+                        additionalProperties:
+                          type: number
+                        example: {
+                          'info': 850,
+                          'warning': 300,
+                          'error': 100
+                        }
+                      byAction:
+                        type: object
+                        additionalProperties:
+                          type: number
+                        example: {
+                          'entity_update': 500,
+                          'entity_create': 300,
+                          'entity_delete': 50,
+                          'file_upload': 400
+                        }
+                      timeline:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              format: date
+                              example: '2025-07-15'
+                            count:
+                              type: number
+                              example: 125
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'

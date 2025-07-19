@@ -1,0 +1,433 @@
+paths:
+  /pages:
+    get:
+      tags:
+        - Pages
+      summary: List all pages
+      description: Retrieves a list of all pages the user has access to
+      operationId: listPages
+      parameters:
+        - name: shared
+          in: query
+          description: Filter by shared status
+          required: false
+          schema:
+            type: boolean
+        - name: type
+          in: query
+          description: Filter by page type
+          required: false
+          schema:
+            type: string
+            enum: ['table', 'overview', 'shot_detail', 'asset_detail', 'task_detail', 'schedule', 'chat', 'forum', 'member_detail']
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PageConfig'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      tags:
+        - Pages
+      summary: Create a new page
+      description: Creates a new page configuration
+      operationId: createPage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the page
+                  example: 'Shot List'
+                type:
+                  type: string
+                  description: Type of page
+                  enum: ['table', 'overview', 'shot_detail', 'asset_detail', 'task_detail', 'schedule', 'chat', 'forum', 'member_detail']
+                  example: 'table'
+                config:
+                  type: object
+                  description: Page configuration
+                  properties:
+                    entity:
+                      type: string
+                      enum: ['shot', 'asset', 'task', 'member', 'user']
+                      example: 'shot'
+                    fields:
+                      type: array
+                      items:
+                        type: string
+                      example: ['shot_id', 'title', 'status']
+                    fieldWidths:
+                      type: object
+                      additionalProperties:
+                        type: number
+                      example: {
+                        'shot_id': 100,
+                        'title': 200,
+                        'status': 150
+                      }
+                    filters:
+                      type: object
+                      additionalProperties: true
+                      example: {
+                        'status': 'in_progress'
+                      }
+                    sorting:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: 'due_date'
+                        direction:
+                          type: string
+                          enum: ['asc', 'desc']
+                          example: 'asc'
+                shared:
+                  type: boolean
+                  description: Whether the page is shared with other users
+                  default: false
+              required:
+                - name
+                - type
+                - config
+      responses:
+        '201':
+          description: Page created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+                  message:
+                    type: string
+                    example: 'Page created successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /pages/{pageId}:
+    get:
+      tags:
+        - Pages
+      summary: Get page details
+      description: Retrieves details for a specific page
+      operationId: getPage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    put:
+      tags:
+        - Pages
+      summary: Update page configuration
+      description: Updates configuration for an existing page
+      operationId: updatePage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the page
+                  example: 'Shot List'
+                type:
+                  type: string
+                  description: Type of page
+                  enum: ['table', 'overview', 'shot_detail', 'asset_detail', 'task_detail', 'schedule', 'chat', 'forum', 'member_detail']
+                  example: 'table'
+                config:
+                  type: object
+                  description: Page configuration
+                  properties:
+                    entity:
+                      type: string
+                      enum: ['shot', 'asset', 'task', 'member', 'user']
+                      example: 'shot'
+                    fields:
+                      type: array
+                      items:
+                        type: string
+                      example: ['shot_id', 'title', 'status']
+                    fieldWidths:
+                      type: object
+                      additionalProperties:
+                        type: number
+                      example: {
+                        'shot_id': 100,
+                        'title': 200,
+                        'status': 150
+                      }
+                    filters:
+                      type: object
+                      additionalProperties: true
+                      example: {
+                        'status': 'in_progress'
+                      }
+                    sorting:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: 'due_date'
+                        direction:
+                          type: string
+                          enum: ['asc', 'desc']
+                          example: 'asc'
+                shared:
+                  type: boolean
+                  description: Whether the page is shared with other users
+                  default: false
+      responses:
+        '200':
+          description: Page updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+                  message:
+                    type: string
+                    example: 'Page updated successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Pages
+      summary: Delete a page
+      description: Deletes an existing page
+      operationId: deletePage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Page deleted successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /pages/{pageId}/share:
+    post:
+      tags:
+        - Pages
+      summary: Share a page
+      description: Makes a page available to other users
+      operationId: sharePage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page shared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+                  message:
+                    type: string
+                    example: 'Page shared successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Pages
+      summary: Unshare a page
+      description: Makes a page private to its owner
+      operationId: unsharePage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Page unshared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+                  message:
+                    type: string
+                    example: 'Page unshared successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /pages/{pageId}/duplicate:
+    post:
+      tags:
+        - Pages
+      summary: Duplicate a page
+      description: Creates a copy of an existing page
+      operationId: duplicatePage
+      parameters:
+        - name: pageId
+          in: path
+          description: ID of the page to duplicate
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name for the new page (defaults to "Copy of [original name]")
+                  example: 'Copy of Shot List'
+                shared:
+                  type: boolean
+                  description: Whether the new page should be shared
+                  default: false
+      responses:
+        '201':
+          description: Page duplicated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PageConfig'
+                  message:
+                    type: string
+                    example: 'Page duplicated successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'

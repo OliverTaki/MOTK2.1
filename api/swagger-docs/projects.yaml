@@ -1,0 +1,355 @@
+paths:
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List all projects
+      description: Retrieves a list of all projects the user has access to
+      operationId: listProjects
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProjectConfig'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      description: Creates a new project with standardized sheet structure
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  description: Unique identifier for the project
+                  example: 'proj_123456'
+                storage_provider:
+                  type: string
+                  description: Storage provider for project files
+                  enum: ['gdrive', 'box']
+                  example: 'gdrive'
+                originals_root_url:
+                  type: string
+                  description: URL to root folder for original files
+                  example: 'https://drive.google.com/folders/originals'
+                proxies_root_url:
+                  type: string
+                  description: URL to root folder for proxy files
+                  example: 'https://drive.google.com/folders/proxies'
+              required:
+                - project_id
+                - storage_provider
+                - originals_root_url
+                - proxies_root_url
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectConfig'
+                  message:
+                    type: string
+                    example: 'Project created successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Project already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get project details
+      description: Retrieves details for a specific project
+      operationId: getProject
+      parameters:
+        - name: projectId
+          in: path
+          description: ID of the project
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectConfig'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    put:
+      tags:
+        - Projects
+      summary: Update project configuration
+      description: Updates configuration for an existing project
+      operationId: updateProject
+      parameters:
+        - name: projectId
+          in: path
+          description: ID of the project
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                storage_provider:
+                  type: string
+                  description: Storage provider for project files
+                  enum: ['gdrive', 'box']
+                  example: 'gdrive'
+                originals_root_url:
+                  type: string
+                  description: URL to root folder for original files
+                  example: 'https://drive.google.com/folders/originals'
+                proxies_root_url:
+                  type: string
+                  description: URL to root folder for proxy files
+                  example: 'https://drive.google.com/folders/proxies'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProjectConfig'
+                  message:
+                    type: string
+                    example: 'Project updated successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project
+      description: Deletes an existing project (admin only)
+      operationId: deleteProject
+      parameters:
+        - name: projectId
+          in: path
+          description: ID of the project
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Project deleted successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /projects/{projectId}/init:
+    post:
+      tags:
+        - Projects
+      summary: Initialize project sheets
+      description: Creates standardized sheet structure for a project
+      operationId: initializeProjectSheets
+      parameters:
+        - name: projectId
+          in: path
+          description: ID of the project
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                withSampleData:
+                  type: boolean
+                  description: Whether to include sample data
+                  default: true
+                customSheets:
+                  type: array
+                  description: Additional custom sheets to create
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: 'CustomSheet'
+                      headers:
+                        type: array
+                        items:
+                          type: string
+                        example: ['id', 'name', 'status']
+      responses:
+        '200':
+          description: Project sheets initialized successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      sheets:
+                        type: array
+                        items:
+                          type: string
+                        example: ['Shots', 'Assets', 'Tasks', 'ProjectMembers', 'Users', 'Pages', 'Fields', 'project_meta', 'Logs']
+                  message:
+                    type: string
+                    example: 'Project sheets initialized successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /projects/{projectId}/storage:
+    post:
+      tags:
+        - Projects
+      summary: Initialize project storage
+      description: Creates folder structure for project files
+      operationId: initializeProjectStorage
+      parameters:
+        - name: projectId
+          in: path
+          description: ID of the project
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project storage initialized successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      originalsFolder:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 'folder_123456'
+                          url:
+                            type: string
+                            example: 'https://drive.google.com/folders/originals'
+                      proxiesFolder:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: 'folder_789012'
+                          url:
+                            type: string
+                            example: 'https://drive.google.com/folders/proxies'
+                  message:
+                    type: string
+                    example: 'Project storage initialized successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'

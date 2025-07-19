@@ -1,0 +1,614 @@
+paths:
+  /files/upload/{entityType}/{entityId}:
+    post:
+      tags:
+        - Files
+      summary: Upload file to entity folder
+      description: Uploads a single file to an entity's folder
+      operationId: uploadFile
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      file:
+                        $ref: '#/components/schemas/FileInfo'
+                      metadata:
+                        type: object
+                        additionalProperties: true
+                  message:
+                    type: string
+                    example: 'File uploaded successfully'
+        '400':
+          description: Invalid request parameters or file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/upload-multiple/{entityType}/{entityId}:
+    post:
+      tags:
+        - Files
+      summary: Upload multiple files to entity folder
+      description: Uploads multiple files to an entity's folder
+      operationId: uploadMultipleFiles
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Files to upload
+      responses:
+        '201':
+          description: Files uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      uploaded:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            file:
+                              $ref: '#/components/schemas/FileInfo'
+                            metadata:
+                              type: object
+                              additionalProperties: true
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            fileName:
+                              type: string
+                              example: 'problematic-file.jpg'
+                            error:
+                              type: string
+                              example: 'Invalid file format'
+                  message:
+                    type: string
+                    example: '3 files uploaded successfully, 1 failed'
+        '400':
+          description: Invalid request parameters or files
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          description: Files too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/url/{entityType}/{entityId}/{fileName}:
+    get:
+      tags:
+        - Files
+      summary: Get file URL for access
+      description: Generates a URL for accessing a file
+      operationId: getFileUrl
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fileName
+          in: path
+          description: Name of the file
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+        - name: proxy
+          in: query
+          description: Whether to return proxy URL instead of original
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: File URL generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        example: 'https://drive.google.com/file/abc123'
+                      fileName:
+                        type: string
+                        example: 'animation.mp4'
+                      entityType:
+                        type: string
+                        example: 'shot'
+                      entityId:
+                        type: string
+                        example: 'shot_123456'
+                      fieldName:
+                        type: string
+                        example: 'versions'
+                      isProxy:
+                        type: boolean
+                        example: false
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/list/{entityType}/{entityId}:
+    get:
+      tags:
+        - Files
+      summary: List files in entity folder
+      description: Lists all files in an entity's folder, optionally filtered by field name
+      operationId: listFiles
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+      responses:
+        '200':
+          description: Files listed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    oneOf:
+                      - type: object
+                        properties:
+                          files:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FileInfo'
+                          fieldName:
+                            type: string
+                            example: 'thumbnails'
+                          count:
+                            type: number
+                            example: 5
+                      - type: object
+                        properties:
+                          thumbnails:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FileInfo'
+                          file_list:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FileInfo'
+                          versions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/FileInfo'
+                          totalCount:
+                            type: number
+                            example: 12
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/{entityType}/{entityId}/{fileName}:
+    get:
+      tags:
+        - Files
+      summary: Get file information
+      description: Retrieves metadata about a specific file
+      operationId: getFileInfo
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fileName
+          in: path
+          description: Name of the file
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+      responses:
+        '200':
+          description: File information retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/FileInfo'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Files
+      summary: Delete file
+      description: Deletes a specific file
+      operationId: deleteFile
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: fileName
+          in: path
+          description: Name of the file
+          required: true
+          schema:
+            type: string
+        - name: fieldName
+          in: query
+          description: Field name for file categorization (thumbnails, file_list, versions)
+          required: false
+          schema:
+            type: string
+            enum: ['thumbnails', 'file_list', 'versions']
+      responses:
+        '200':
+          description: File deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'File deleted successfully'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/archive/{entityType}/{entityId}:
+    post:
+      tags:
+        - Files
+      summary: Archive entity folder
+      description: Moves an entity's folder to the deleted archive
+      operationId: archiveEntityFolder
+      parameters:
+        - name: entityType
+          in: path
+          description: Type of entity (shot, asset, task, member, user)
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: entityId
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metadata:
+                  type: object
+                  description: Additional metadata to store with the archived folder
+                  additionalProperties: true
+      responses:
+        '200':
+          description: Entity folder archived successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Entity folder archived successfully'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /files/proxy/{fileId}:
+    post:
+      tags:
+        - Files
+      summary: Generate proxy file
+      description: Generates a proxy version of a file for faster preview
+      operationId: generateProxy
+      parameters:
+        - name: fileId
+          in: path
+          description: ID of the file to generate proxy for
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                options:
+                  type: object
+                  properties:
+                    resolution:
+                      type: string
+                      example: '1920x1080'
+                    bitrate:
+                      type: string
+                      example: '1M'
+                    format:
+                      type: string
+                      example: 'mp4'
+                    codec:
+                      type: string
+                      example: 'libx264'
+      responses:
+        '200':
+          description: Proxy generation started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                        example: 'job_123456'
+                      status:
+                        type: string
+                        enum: ['pending', 'processing', 'completed', 'failed']
+                        example: 'pending'
+                  message:
+                    type: string
+                    example: 'Proxy generation job started'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '501':
+          description: Not implemented
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: 'Proxy generation not implemented yet - will be implemented in task 3.3'

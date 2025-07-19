@@ -1,0 +1,152 @@
+paths:
+  /auth/google:
+    get:
+      tags:
+        - Authentication
+      summary: Get Google OAuth authorization URL
+      description: Returns the URL to redirect the user for Google OAuth authentication
+      operationId: getGoogleAuthUrl
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    example: 'https://accounts.google.com/o/oauth2/auth?...'
+        '500':
+          $ref: '#/components/responses/ServerError'
+      security: []
+
+  /auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Handle Google OAuth callback
+      description: Processes the OAuth callback from Google and returns user tokens
+      operationId: handleGoogleCallback
+      parameters:
+        - name: code
+          in: query
+          description: Authorization code from Google
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: '123456789'
+                      email:
+                        type: string
+                        example: 'user@example.com'
+                      name:
+                        type: string
+                        example: 'John Doe'
+                      picture:
+                        type: string
+                        example: 'https://example.com/avatar.jpg'
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      expiresIn:
+                        type: number
+        '400':
+          description: Missing authorization code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+      security: []
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Uses a refresh token to obtain a new access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
+      responses:
+        '200':
+          description: Successful token refresh
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokens:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                      refreshToken:
+                        type: string
+                      expiresIn:
+                        type: number
+        '400':
+          description: Missing refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+      security: []
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout (invalidate session)
+      description: Invalidates the user's session and tokens
+      operationId: logout
+      responses:
+        '200':
+          description: Successfully logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 'Logged out successfully'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/ServerError'

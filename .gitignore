@@ -1,0 +1,19 @@
+# Dependencies
+/node_modules
+/frontend/node_modules
+/api/node_modules
+
+# Environment variables
+.env
+api/.env
+service-account.json
+
+# Temporary files
+/temp
+/test-output.mp4
+
+# Logs
+*.log
+
+# Editor-specific files
+.vscode/

@@ -1,0 +1,516 @@
+paths:
+  /entities/{type}:
+    get:
+      tags:
+        - Entities
+      summary: List entities of a specific type
+      description: Retrieves a list of entities with optional filtering and sorting
+      operationId: listEntities
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity to list
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: limit
+          in: query
+          description: Maximum number of entities to return
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Number of entities to skip
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: sort
+          in: query
+          description: Field to sort by
+          required: false
+          schema:
+            type: string
+        - name: direction
+          in: query
+          description: Sort direction
+          required: false
+          schema:
+            type: string
+            enum: ['asc', 'desc']
+            default: 'asc'
+        - name: filter
+          in: query
+          description: JSON-encoded filter criteria
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: '#/components/schemas/Shot'
+                        - $ref: '#/components/schemas/Asset'
+                        - $ref: '#/components/schemas/Task'
+                        - $ref: '#/components/schemas/ProjectMember'
+                        - $ref: '#/components/schemas/User'
+                  total:
+                    type: number
+                    example: 100
+                  offset:
+                    type: number
+                    example: 0
+                  limit:
+                    type: number
+                    example: 50
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    post:
+      tags:
+        - Entities
+      summary: Create a new entity
+      description: Creates a new entity of the specified type
+      operationId: createEntity
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity to create
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Shot'
+                - $ref: '#/components/schemas/Asset'
+                - $ref: '#/components/schemas/Task'
+                - $ref: '#/components/schemas/ProjectMember'
+                - $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: Entity created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/Shot'
+                      - $ref: '#/components/schemas/Asset'
+                      - $ref: '#/components/schemas/Task'
+                      - $ref: '#/components/schemas/ProjectMember'
+                      - $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+                    example: 'Entity created successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Entity already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /entities/{type}/{id}:
+    get:
+      tags:
+        - Entities
+      summary: Get a specific entity
+      description: Retrieves a single entity by ID
+      operationId: getEntity
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/Shot'
+                      - $ref: '#/components/schemas/Asset'
+                      - $ref: '#/components/schemas/Task'
+                      - $ref: '#/components/schemas/ProjectMember'
+                      - $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    put:
+      tags:
+        - Entities
+      summary: Update an entity
+      description: Updates an existing entity
+      operationId: updateEntity
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Shot'
+                - $ref: '#/components/schemas/Asset'
+                - $ref: '#/components/schemas/Task'
+                - $ref: '#/components/schemas/ProjectMember'
+                - $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: Entity updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/Shot'
+                      - $ref: '#/components/schemas/Asset'
+                      - $ref: '#/components/schemas/Task'
+                      - $ref: '#/components/schemas/ProjectMember'
+                      - $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+                    example: 'Entity updated successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Entities
+      summary: Delete an entity
+      description: Deletes an existing entity
+      operationId: deleteEntity
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entity deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Entity deleted successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /entities/{type}/{id}/link/{targetType}/{targetId}:
+    post:
+      tags:
+        - Entities
+      summary: Link entities
+      description: Creates a link between two entities
+      operationId: linkEntities
+      parameters:
+        - name: type
+          in: path
+          description: Type of source entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of source entity
+          required: true
+          schema:
+            type: string
+        - name: targetType
+          in: path
+          description: Type of target entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: targetId
+          in: path
+          description: ID of target entity
+          required: true
+          schema:
+            type: string
+        - name: linkType
+          in: query
+          description: Type of link
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entities linked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Entities linked successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    delete:
+      tags:
+        - Entities
+      summary: Unlink entities
+      description: Removes a link between two entities
+      operationId: unlinkEntities
+      parameters:
+        - name: type
+          in: path
+          description: Type of source entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of source entity
+          required: true
+          schema:
+            type: string
+        - name: targetType
+          in: path
+          description: Type of target entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: targetId
+          in: path
+          description: ID of target entity
+          required: true
+          schema:
+            type: string
+        - name: linkType
+          in: query
+          description: Type of link
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entities unlinked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 'Entities unlinked successfully'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /entities/{type}/{id}/links:
+    get:
+      tags:
+        - Entities
+      summary: Get entity links
+      description: Retrieves all links for an entity
+      operationId: getEntityLinks
+      parameters:
+        - name: type
+          in: path
+          description: Type of entity
+          required: true
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+        - name: id
+          in: path
+          description: ID of the entity
+          required: true
+          schema:
+            type: string
+        - name: linkType
+          in: query
+          description: Filter by link type
+          required: false
+          schema:
+            type: string
+        - name: targetType
+          in: query
+          description: Filter by target entity type
+          required: false
+          schema:
+            type: string
+            enum: ['shot', 'asset', 'task', 'member', 'user']
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sourceType:
+                          type: string
+                          example: 'shot'
+                        sourceId:
+                          type: string
+                          example: 'shot_123456'
+                        targetType:
+                          type: string
+                          example: 'task'
+                        targetId:
+                          type: string
+                          example: 'task_789012'
+                        linkType:
+                          type: string
+                          example: 'parent'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/ServerError'

@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: motk-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build:api
+    startCommand: npm run start:api
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        fromService:
+          type: web
+          name: motk-api
+          property: port
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ORIGINALS_ROOT_URL
+        sync: false
+      - key: PROXIES_ROOT_URL
+        sync: false
+
+  - type: web
+    name: motk-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://motk-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  - name: motk-redis
+    plan: free
+    type: redis
