@@ -1,8 +1,8 @@
 /* -------------------------------------------------------------------------- */
 /*  Google Sheets client for MOTK (service‑account auth)                    */
 /* -------------------------------------------------------------------------- */
-import { google, sheets_v4 } from 'googleapis';
-import { GoogleAuth }         from 'google-auth-library';
+
+
 import {
   ISheetsApiClient,
   SheetData,
@@ -19,14 +19,12 @@ export class SheetsApiClient implements ISheetsApiClient {
   private spreadsheetId: string;
 
   constructor(spreadsheetId?: string) {
-    this.spreadsheetId = spreadsheetId
-      || process.env.GOOGLE_SHEETS_ID;
-    // build a GoogleAuth instance from your SERVICE ACCOUNT JSON pasted in .env
-    const auth = new GoogleAuth({
+    this.spreadsheetId = spreadsheetId ?? process.env.GOOGLE_SHEETS_ID ?? '';
+    // Prefer the googleapis‑bundled GoogleAuth
+    const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: process.env.GSA_EMAIL,
-        // private key in env must have literal “\n” sequences, not raw newlines
-        private_key: process.env.GSA_PRIVATE_KEY.replace(/\n/g, '\n'),
+        client_email: process.env.GSA_EMAIL ?? '',
+        private_key: (process.env.GSA_PRIVATE_KEY ?? '').replace(/\n/g, '\n'),
       },
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
@@ -85,7 +83,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     );
     return res.data.sheets
       ?.map(s => s.properties?.title)
-      .filter((t): t is string => t)
+      .filter((t): t is string => t !== null)
       ?? [];
   }
 
@@ -116,7 +114,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     });
     const titles = resp.data.sheets
       ?.map(s => s.properties?.title)
-      .filter((t): t is string => t)
+      .filter((t): t is string => t !== null)
       ?? [];
     return {
       title: resp.data.properties?.title ?? 'Untitled',
@@ -154,12 +152,15 @@ export class SheetsApiClient implements ISheetsApiClient {
       }),
       `appendRows(${sheetName})`
     );
+    const rawRange = res.data.updates?.updatedRange;
+    const updatedRange = rawRange === null ? undefined : rawRange;
+    const rawRows  = res.data.updates?.updatedRows;
+    const updatedRows = rawRows === null ? undefined : rawRows;
     return {
       success: true,
-      updatedRange: res.data.updates?.updatedRange ?? undefined,
-      updatedRows:  res.data.updates?.updatedRows  ?? undefined
+      updatedRange,
+      updatedRows
     };
-  }
 
   /** clear everything but headers */
   async clearSheet(sheetName: string): Promise<boolean> {
@@ -186,8 +187,8 @@ export class SheetsApiClient implements ISheetsApiClient {
     );
     return {
       success: true,
-      updatedRange: res.data.updatedRange ?? undefined,
-      updatedRows:  res.data.updatedRows  ?? undefined
+      updatedRange: res.data.updatedRange === null ? undefined : res.data.updatedRange,
+      updatedRows: res.data.updatedRows === null ? undefined : res.data.updatedRows,
     };
   }
 
