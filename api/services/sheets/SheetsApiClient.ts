@@ -291,6 +291,19 @@ export class SheetsApiClient implements ISheetsApiClient {
     }, `createSheet(${sheetName})`);
   }
 
+  async createMultipleSheets(
+    sheetConfigs: { name: string; headers: string[] }[],
+  ): Promise<{ created: string[]; failed: string[] }> {
+    const created: string[] = [];
+    const failed:  string[] = [];
+
+    for (const c of sheetConfigs) {
+      const ok = await this.createSheet(c.name, c.headers);
+      (ok ? created : failed).push(c.name);
+    }
+    return { created, failed };
+  }
+
   // -------------------------------------------------------------------
   //  Spreadsheet metadata & health
   // -------------------------------------------------------------------
