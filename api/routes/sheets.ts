@@ -1,5 +1,7 @@
 import express from 'express';
-import { sheetsClient } from '../services/sheets/SheetsApiClient';
+import { SheetsApiClient } from '../services/sheets/SheetsApiClient';
+
+const sheetsClient = new SheetsApiClient();
 import { CellUpdateParams, BatchUpdateParams } from '../services/sheets/ISheetsApiClient';
 import { ApiResponse } from '../../shared/types';
 
