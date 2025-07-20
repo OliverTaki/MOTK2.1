@@ -125,10 +125,6 @@ export class SheetsApiClient implements ISheetsApiClient {
     };
   }
 
-
-
-
-
   /** get raw values */
   async getSheetData(sheetName: string, range?: string): Promise<SheetData> {
     const full = range ? `${sheetName}${range}` : sheetName;
@@ -302,35 +298,6 @@ export class SheetsApiClient implements ISheetsApiClient {
     return { created, failed };
   }
 
-  // -------------------------------------------------------------------
-  //  Spreadsheet metadata & health
-  // -------------------------------------------------------------------
-  async getSpreadsheetInfo(): Promise<{
-    title: string;
-    sheetCount: number;
-    sheets: string[];
-  }> {
-    return this.executeWithRetry(
-      async () => {
-        const res = await this.sheets.spreadsheets.get({
-          spreadsheetId: this.spreadsheetId,
-          includeGridData: false,
-        });
-        const titles =
-          res.data.sheets?.map(s => s.properties.title)
-          .filter((t): t is string => t)
-          ?? [];
-
-        return {
-          title: res.data.properties.title,
-          sheetCount: titles.length,
-          sheets: titles,
-        };
-      },
-      'getSpreadsheetInfo'
-    );
-  }
-
   async deleteRow(
     sheetName: string,
     rowIndex: number,
@@ -423,5 +390,12 @@ export class SheetsApiClient implements ISheetsApiClient {
       s = String.fromCharCode(65 + (i % 26)) + s;
     }
     return s;
+  }
+
+  async initializeProject(cfg: ProjectConfig): Promise<ProjectMeta> {
+    const { SheetInitializationService } = await import(
+      './SheetInitializationService'
+    );
+    return new SheetInitializationService(this).initSheets(cfg);
   }
 }
