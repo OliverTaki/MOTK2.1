@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -84,5 +85,11 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
   });
 }
+
+console.log(
+  'GSA_PRIVATE_KEY:',
+  process.env.GSA_PRIVATE_KEY?.slice(0, 20) + '…'
+);
+
 
 export default app;
