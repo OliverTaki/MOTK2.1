@@ -261,6 +261,36 @@ export class SheetsApiClient implements ISheetsApiClient {
     };
   }
 
+  /**
+   * Create a new sheet (if it doesn’t already exist) and optionally write headers.
+   */
+  public async createSheet(
+    sheetName: string,
+    headers: string[] = []
+  ): Promise<boolean> {
+    return this.executeWithRetry(async () => {
+      // 1) Check if sheet already exists
+      const names = await this.getSheetNames();
+      if (names.includes(sheetName)) return true;
+
+      // 2) Add sheet
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        requestBody: {
+          requests: [
+            { addSheet: { properties: { title: sheetName } } }
+          ]
+        }
+      });
+
+      // 3) Add headers row if provided
+      if (headers.length) {
+        await this.appendRows(sheetName, [headers]);
+      }
+      return true;
+    }, `createSheet(${sheetName})`);
+  }
+
   // -------------------------------------------------------------------
   //  Spreadsheet metadata & health
   // -------------------------------------------------------------------
