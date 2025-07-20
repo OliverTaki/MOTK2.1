@@ -1,6 +1,8 @@
-/* eslint‑disable @typescript-eslint/no‑explicit‑any */
+/* -------------------------------------------------------------------------- */
+/*  Google Sheets client for MOTK (service‑account auth)                    */
+/* -------------------------------------------------------------------------- */
 import { google, sheets_v4 } from 'googleapis';
-import { GoogleAuth } from 'google-auth-library';
+import { GoogleAuth }         from 'google-auth-library';
 import {
   ISheetsApiClient,
   SheetData,
@@ -16,189 +18,147 @@ export class SheetsApiClient implements ISheetsApiClient {
   private sheets: sheets_v4.Sheets;
   private spreadsheetId: string;
 
-  private readonly retryAttempts = 3;
-  private readonly retryDelayMs = 1_000;
-
   constructor(spreadsheetId?: string) {
-    const id = spreadsheetId ?? process.env.GOOGLE_SHEETS_ID;
-    if (!id) throw new Error('GOOGLE_SHEETS_ID is required');
-    this.spreadsheetId = id;
-
-    const credentials = process.env.GSA_CREDENTIALS_JSON
-      ? JSON.parse(process.env.GSA_CREDENTIALS_JSON)
-      : {
-          client_email: process.env.GSA_EMAIL,
-          private_key: (process.env.GSA_PRIVATE_KEY || '').replace(/\n/g, '\n')
-        };
-
+    this.spreadsheetId = spreadsheetId
+      || process.env.GOOGLE_SHEETS_ID;
+    // build a GoogleAuth instance from your SERVICE ACCOUNT JSON pasted in .env
     const auth = new GoogleAuth({
-      credentials,
+      credentials: {
+        client_email: process.env.GSA_EMAIL,
+        // private key in env must have literal “\n” sequences, not raw newlines
+        private_key: process.env.GSA_PRIVATE_KEY.replace(/\n/g, '\n'),
+      },
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive'
-      ]
+        'https://www.googleapis.com/auth/drive',
+      ],
     });
-
     this.sheets = google.sheets({ version: 'v4', auth });
   }
 
-  // -------------------------------------------------------------------
-  //  Retry wrapper with exponential back‑off
-  // -------------------------------------------------------------------
+  /** retry helper with exponential backoff */
   private async executeWithRetry<T>(
     fn: () => Promise<T>,
-    label: string
+    label: string,
+    attempts = 3,
+    delay = 500
   ): Promise<T> {
-    let lastErr: Error;
-    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+    let last: any;
+    for (let i = 1; i <= attempts; i++) {
       try {
         return await fn();
-      } catch (err: any) {
-        lastErr = err instanceof Error ? err : new Error(err);
-        const msg = lastErr.message.toLowerCase();
-        const retryable = [
-          'rate limit',
-          'timeout',
-          'network',
-          'quota',
-          'unavailable',
-          'econnreset',
-          'etimedout',
-        ].some(p => msg.includes(p));
-
-        if (retryable || attempt === this.retryAttempts) {
-          console.error(`❌ [Sheets] ${label} failed:`, lastErr);
-          throw lastErr;
+      } catch (e: any) {
+        last = e;
+        const msg = e.message?.toLowerCase() || '';
+        if (i === attempts
+          || /rate limit|quota|timeout|network|econnreset|service unavailable/.test(msg)
+        ) {
+          console.error(`❌  [SheetsApi][${label}] failed on try #${i}`, e);
+          throw e;
         }
-
-        const delay = this.retryDelayMs * 2 ** (attempt - 1);
-        console.warn(`⚠️ [Sheets] ${label} retry #${attempt} in ${delay}ms`);
-        await new Promise(r => setTimeout(r, delay));
+        const backoff = delay * 2 ** (i - 1);
+        console.warn(`⏳  [SheetsApi][${label}] retrying in ${backoff}ms (attempt ${i})`);
+        await new Promise(r => setTimeout(r, backoff));
       }
     }
-    throw lastErr; // unreachable
+    throw last;
   }
 
-  // -------------------------------------------------------------------
-  //  Project bootstrap
-  // -------------------------------------------------------------------
-  async initializeProject(cfg: ProjectConfig): Promise<ProjectMeta> {
-    const { SheetInitializationService } = await import(
-      './SheetInitializationService'
-    );
-    return new SheetInitializationService(this).initSheets(cfg);
+  /** fire‑and‑forget “is the API reachable?” check */
+  async validateConnection(): Promise<boolean> {
+    try {
+      await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+        includeGridData: false,
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  // -------------------------------------------------------------------
-  //  READ
-  // -------------------------------------------------------------------
-  async getSheetData(
-    sheetName: string,
-    range?: string
-  ): Promise<SheetData> {
-    return this.executeWithRetry(
-      async () => {
-        const fullRange = range ? `${sheetName}${range}` : sheetName;
-        const res = await this.sheets.spreadsheets.values.get({
-          spreadsheetId: this.spreadsheetId,
-          range: fullRange,
-          majorDimension: 'ROWS',
-        });
-        return {
-          values: res.data.values ?? [],
-          range: res.data.range ?? fullRange,
-          majorDimension: 'ROWS',
-        };
-      },
-      `getSheetData(${sheetName}${range ? `:${range}` : ''})`
-    );
-  }
-
+  /** list sheet names */
   async getSheetNames(): Promise<string[]> {
-    return this.executeWithRetry(
-      async () => {
-        const res = await this.sheets.spreadsheets.get({
-          spreadsheetId: this.spreadsheetId,
-          includeGridData: false,
-        });
-        return (
-          res.data.sheets?.map(s => s.properties.title) ?? []
-        );
-      },
+    const res = await this.executeWithRetry(
+      () => this.sheets.spreadsheets.get({ spreadsheetId: this.spreadsheetId }),
       'getSheetNames'
     );
+    return res.data.sheets
+      ?.map(s => s.properties?.title)
+      .filter((t): t is string => t)
+      ?? [];
   }
 
-  async sheetExists(sheetName: string): Promise<boolean> {
+  /** does a sheet exist? */
+  async sheetExists(name: string): Promise<boolean> {
     const names = await this.getSheetNames();
-    return names.includes(sheetName);
+    return names.includes(name);
   }
 
-  async getRowCount(sheetName: string): Promise<number> {
-    const data = await this.getSheetData(sheetName);
-    return data.values.length;
+  /** get raw values */
+  async getSheetData(sheetName: string, range?: string): Promise<SheetData> {
+    const full = range ? `${sheetName}${range}` : sheetName;
+    const res = await this.executeWithRetry(
+      () => this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: full,
+        majorDimension: 'ROWS'
+      }),
+      `getSheetData(${sheetName})`
+    );
+    return {
+      values: res.data.values ?? [],
+      range: res.data.range ?? full,
+      majorDimension: 'ROWS'
+    };
   }
 
-  // -------------------------------------------------------------------
-  //  WRITE: append, updateRow, clearSheet
-  // -------------------------------------------------------------------
-  async appendRows(
-    sheetName: string,
-    rows: any[][]
-  ): Promise<UpdateResult> {
-    return this.executeWithRetry(
-      async () => {
-        const res = await this.sheets.spreadsheets.values.append({
-          spreadsheetId: this.spreadsheetId,
-          range: sheetName,
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: rows },
-        });
-        return {
-          success: true,
-          updatedRange: res.data.updates?.updatedRange || undefined,
-          updatedRows: res.data.updates?.updatedRows || undefined,
-        };
-      },
+  /** append rows */
+  async appendRows(sheetName: string, rows: any[][]): Promise<UpdateResult> {
+    const res = await this.executeWithRetry(
+      () => this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: sheetName,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: rows }
+      }),
       `appendRows(${sheetName})`
     );
+    return {
+      success: true,
+      updatedRange: res.data.updates?.updatedRange ?? undefined,
+      updatedRows:  res.data.updates?.updatedRows  ?? undefined
+    };
   }
 
+  /** clear everything but headers */
   async clearSheet(sheetName: string): Promise<boolean> {
-    return this.executeWithRetry(
-      async () => {
-        await this.sheets.spreadsheets.values.clear({
-          spreadsheetId: this.spreadsheetId,
-          range: `${sheetName}A2:Z`,
-        });
-        return true;
-      },
+    await this.executeWithRetry(
+      () => this.sheets.spreadsheets.values.clear({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}A2:Z`
+      }),
       `clearSheet(${sheetName})`
     );
+    return true;
   }
 
-  async updateRow(
-    sheetName: string,
-    rowIndex: number,
-    values: any[]
-  ): Promise<UpdateResult> {
-    return this.executeWithRetry(
-      async () => {
-        const range = `${sheetName}${rowIndex}:${rowIndex}`;
-        const res = await this.sheets.spreadsheets.values.update({
-          spreadsheetId: this.spreadsheetId,
-          range,
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [values] },
-        });
-        return {
-          success: true,
-          updatedRange: res.data.updatedRange || undefined,
-          updatedRows: res.data.updatedRows || undefined,
-        };
-      },
-      `updateRow(${sheetName}:${rowIndex})`
+  /** update a single row */
+  async updateRow(sheetName: string, rowIdx: number, vals: any[]): Promise<UpdateResult> {
+    const res = await this.executeWithRetry(
+      () => this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetName}${rowIdx}:${rowIdx}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [vals] }
+      }),
+      `updateRow(${sheetName},${rowIdx})`
     );
+    return {
+      success: true,
+      updatedRange: res.data.updatedRange ?? undefined,
+      updatedRows:  res.data.updatedRows  ?? undefined
+    };
   }
 
   // -------------------------------------------------------------------
@@ -225,7 +185,7 @@ export class SheetsApiClient implements ISheetsApiClient {
           params.entityId,
           params.fieldId
         );
-        if (a1) throw new Error(`Cell not found`);
+        if (!a1) throw new Error(`Cell not found`);
 
         const res = await this.sheets.spreadsheets.values.update({
           spreadsheetId: this.spreadsheetId,
@@ -323,7 +283,9 @@ export class SheetsApiClient implements ISheetsApiClient {
           includeGridData: false,
         });
         const titles =
-          res.data.sheets?.map(s => s.properties.title) ?? [];
+          res.data.sheets?.map(s => s.properties.title)
+          .filter((t): t is string => t)
+          ?? [];
 
         return {
           title: res.data.properties.title,
@@ -333,58 +295,6 @@ export class SheetsApiClient implements ISheetsApiClient {
       },
       'getSpreadsheetInfo'
     );
-  }
-
-  async validateConnection(): Promise<boolean> {
-    try {
-      await this.getSheetNames();
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  // -------------------------------------------------------------------
-  //  Helpers: findCellValue / findCellRange / colToLetter
-  // -------------------------------------------------------------------
-  private findCellValue(
-    data: SheetData,
-    entityId: string,
-    fieldId: string
-  ): any {
-    const headers = data.values[0] ?? [];
-    const col = headers.indexOf(fieldId);
-    if (col < 0) return null;
-
-    for (let i = 1; i < data.values.length; i++) {
-      if (data.values[i][0] === entityId) return data.values[i][col];
-    }
-    return null;
-  }
-
-  private findCellRange(
-    data: SheetData,
-    entityId: string,
-    fieldId: string
-  ): string | null {
-    const headers = data.values[0] ?? [];
-    const col = headers.indexOf(fieldId);
-    if (col < 0) return null;
-
-    for (let i = 1; i < data.values.length; i++) {
-      if (data.values[i][0] === entityId) {
-        return `${this.colToLetter(col)}${i + 1}`;
-      }
-    }
-    return null;
-  }
-
-  private colToLetter(i: number): string {
-    let s = '';
-    for (; i >= 0; i = Math.floor(i / 26) - 1) {
-      s = String.fromCharCode(65 + (i % 26)) + s;
-    }
-    return s;
   }
 
   async deleteRow(
@@ -436,5 +346,48 @@ export class SheetsApiClient implements ISheetsApiClient {
       },
       `clearRange(${range})`
     );
+  }
+
+  // -------------------------------------------------------------------
+  //  Helpers: findCellValue / findCellRange / colToLetter
+  // -------------------------------------------------------------------
+  private findCellValue(
+    data: SheetData,
+    entityId: string,
+    fieldId: string
+  ): any {
+    const headers = data.values[0] ?? [];
+    const col = headers.indexOf(fieldId);
+    if (col < 0) return null;
+
+    for (let i = 1; i < data.values.length; i++) {
+      if (data.values[i][0] === entityId) return data.values[i][col];
+    }
+    return null;
+  }
+
+  private findCellRange(
+    data: SheetData,
+    entityId: string,
+    fieldId: string
+  ): string | null {
+    const headers = data.values[0] ?? [];
+    const col = headers.indexOf(fieldId);
+    if (col < 0) return null;
+
+    for (let i = 1; i < data.values.length; i++) {
+      if (data.values[i][0] === entityId) {
+        return `${this.colToLetter(col)}${i + 1}`;
+      }
+    }
+    return null;
+  }
+
+  private colToLetter(i: number): string {
+    let s = '';
+    for (; i >= 0; i = Math.floor(i / 26) - 1) {
+      s = String.fromCharCode(65 + (i % 26)) + s;
+    }
+    return s;
   }
 }
