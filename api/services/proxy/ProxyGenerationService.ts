@@ -116,7 +116,7 @@ export class ProxyGenerationService {
     version?: number
   ): Promise<ProxyInfo> {
     const proxyFileName = this.generateProxyFileName(entityId, originalFileInfo.name, take, version);
-    
+
     // Check if file is a video
     if (!this.isVideoFile(originalFileInfo.mimeType)) {
       throw new Error(`File ${originalFileInfo.name} is not a video file`);
@@ -132,14 +132,10 @@ export class ProxyGenerationService {
 
       // Upload proxy to storage (flat structure in PROXIES folder)
       const proxyBuffer = fs.readFileSync(tempOutputPath);
-      await this.uploadProxyFile(proxyFileName, proxyBuffer);
+      const proxyFileInfo = await this.uploadProxyFile(proxyFileName, proxyBuffer);
 
       // Clean up temp files
       this.cleanupTempFiles([tempInputPath, tempOutputPath]);
-
-      // Upload proxy to storage (flat structure in PROXIES folder)
-      const proxyBuffer = fs.readFileSync(tempOutputPath);
-      const proxyFileInfo = await this.uploadProxyFile(proxyFileName, proxyBuffer);
 
       return {
         originalFileInfo,

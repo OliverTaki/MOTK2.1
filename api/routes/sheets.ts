@@ -486,12 +486,12 @@ router.post('/:sheetName/rows', validateSheetName, async (req, res): Promise<exp
 });
 
 // Set user context (example for validation)
-if (validation.user) {
-  req.user = {
-    id: validation.user.id,
-    email: validation.user.email,
-    name: validation.user.name ?? '', // ← fallback
-  };
-}
+//  if (validation.user) {
+//    req.user = {
+//      id: validation.user.id,
+//      email: validation.user.email,
+//      name: validation.user.name ?? '', // ← fallback
+//    };
+//  }
 
 export default router;

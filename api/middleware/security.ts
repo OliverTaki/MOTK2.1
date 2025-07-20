@@ -3,20 +3,21 @@ import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
-/**
- * Security configuration for the API
- */
+/** ------------------------------------------------------------------
+ * 1. Global security configuration (CORS + Helmet)
+ * -----------------------------------------------------------------*/
 export const securityConfig = {
-  // CORS configuration
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:5173'],
+    origin:
+      process.env.ALLOWED_ORIGINS?.split(',') || [
+        'http://localhost:3000',
+        'http://localhost:5173',
+      ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Requested-With'],
-    exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset']
+    exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
   },
-  
-  // Helmet security headers configuration
   helmet: {
     contentSecurityPolicy: {
       directives: {
@@ -25,277 +26,237 @@ export const securityConfig = {
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         imgSrc: ["'self'", 'data:', 'https:'],
         scriptSrc: ["'self'"],
-        connectSrc: ["'self'", 'https://accounts.google.com', 'https://sheets.googleapis.com', 'https://drive.googleapis.com']
-      }
+        connectSrc: [
+          "'self'",
+          'https://accounts.google.com',
+          'https://sheets.googleapis.com',
+          'https://drive.googleapis.com',
+        ],
+      },
     },
-    crossOriginEmbedderPolicy: false, // Allow embedding for Swagger UI
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true
-    }
-  }
+    crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31_536_000, includeSubDomains: true, preload: true },
+  },
 };
 
-/**
- * Apply security middleware to Express app
- */
 export const applySecurity = (app: any) => {
-  // Apply Helmet for security headers
   app.use(helmet(securityConfig.helmet));
-  
-  // Apply CORS
   app.use(cors(securityConfig.cors));
-  
-  // Trust proxy for rate limiting behind reverse proxy
   app.set('trust proxy', 1);
 };
 
-/**
- * Advanced rate limiting with different tiers
- */
-export const createRateLimiter = (options: {
+/** ------------------------------------------------------------------
+ * 2. Advanced rate‑limiter factory
+ * -----------------------------------------------------------------*/
+export function createRateLimiter(opts: {
   windowMs: number;
   max: number;
   message?: string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
   keyGenerator?: (req: Request) => string;
-}) => {
-  return rateLimit({
-    windowMs: options.windowMs,
-    max: options.max,
+}) {
+  const limiter = rateLimit({
+    windowMs: opts.windowMs,
+    max: opts.max,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
       success: false,
-      error: options.message || 'Too many requests, please try again later',
-      message: 'Rate limit exceeded'
+      error: opts.message || 'Too many requests, please try again later',
+      message: 'Rate limit exceeded',
     },
-    skipSuccessfulRequests: options.skipSuccessfulRequests || false,
-    skipFailedRequests: options.skipFailedRequests || false,
-    keyGenerator: options.keyGenerator,
-    skip: (req: Request) => {
-      // Skip rate limiting for trusted internal services
-      const trustedApiKeys = process.env.TRUSTED_API_KEYS?.split(',') || [];
-      const apiKey = req.headers['x-api-key'] as string;
-      return trustedApiKeys.includes(apiKey);
-    }
+    skipSuccessfulRequests: opts.skipSuccessfulRequests ?? false,
+    skipFailedRequests: opts.skipFailedRequests ?? false,
+    keyGenerator: opts.keyGenerator,
+    skip(req) {
+      const trusted = process.env.TRUSTED_API_KEYS?.split(',') || [];
+      const key = req.headers['x-api-key'] as string;
+      return trusted.includes(key);
+    },
   });
+
+  // wrap so the outer function returns a guard (Response | void)
+  return function rateLimiterGuard(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Response | void {
+    return limiter(req, res, next);
+  };
+}
+
+/* ------------------------------------------------------------------
+ * 3. Tiered limiter (static instances)
+ * -----------------------------------------------------------------*/
+// ❶ 事前に limiter を作成
+const apiKeyLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'API‑key rate limit exceeded', message: 'Rate limit exceeded' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Auth rate limit exceeded', message: 'Rate limit exceeded' },
+});
+
+const anonLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Unauth rate limit exceeded', message: 'Rate limit exceeded' },
+});
+
+// ❷ 毎リクエストでは「どの limiter を使うか」だけ判断
+export const tieredRateLimiter = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Response | void => {
+  const apiKey = req.headers['x-api-key'] as string | undefined;
+  const auth   = req.headers.authorization;
+
+  if (apiKey)     return apiKeyLimiter(req, res, next);
+  if (auth)       return authLimiter(req, res, next);
+  /* else */       return anonLimiter(req, res, next);
 };
 
-/**
- * Tiered rate limiting based on authentication status
- */
-export const tieredRateLimiter = (req: Request, res: Response, next: NextFunction) => {
-  const apiKey = req.headers['x-api-key'] as string;
-  const authHeader = req.headers.authorization;
-  
-  // Different limits based on authentication
-  let limiter;
-  
-  if (apiKey) {
-    // API key users get higher limits
-    limiter = rateLimit({
-      windowMs: 60 * 1000, // 1 minute
-      max: 1000, // 1000 requests per minute for API keys
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: {
-        success: false,
-        error: 'API key rate limit exceeded',
-        message: 'Rate limit exceeded'
-      }
-    });
-  } else if (authHeader) {
-    // Authenticated users get moderate limits
-    limiter = rateLimit({
-      windowMs: 60 * 1000, // 1 minute
-      max: 200, // 200 requests per minute for authenticated users
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: {
-        success: false,
-        error: 'Authenticated user rate limit exceeded',
-        message: 'Rate limit exceeded'
-      }
-    });
-  } else {
-    // Unauthenticated users get lower limits
-    limiter = rateLimit({
-      windowMs: 60 * 1000, // 1 minute
-      max: 50, // 50 requests per minute for unauthenticated users
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: {
-        success: false,
-        error: 'Unauthenticated user rate limit exceeded',
-        message: 'Rate limit exceeded'
-      }
-    });
-  }
-  
-  limiter(req, res, next);
-};
 
-/**
- * IP-based blocking middleware for suspicious activity
- */
+/** ------------------------------------------------------------------
+ * 4. IP‑based blocking / tracking
+ * -----------------------------------------------------------------*/
 const blockedIPs = new Set<string>();
-const suspiciousActivity = new Map<string, { count: number; lastActivity: Date }>();
+const suspicious = new Map<string, { count: number; last: Date }>();
 
-export const ipSecurityMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const clientIP = req.ip || 'unknown';
-  
-  // Check if IP is blocked
-  if (blockedIPs.has(clientIP)) {
+export function ipSecurityMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Response | void {
+  const ip = req.ip || 'unknown';
+
+  if (blockedIPs.has(ip)) {
     return res.status(403).json({
       success: false,
       error: 'Access denied',
-      message: 'Your IP address has been blocked due to suspicious activity'
+      message: 'Your IP address has been blocked due to suspicious activity',
     });
   }
-  
-  // Track suspicious activity patterns
+
   const now = new Date();
-  const activity = suspiciousActivity.get(clientIP) || { count: 0, lastActivity: now };
-  
-  // Reset count if more than 1 hour has passed
-  if (now.getTime() - activity.lastActivity.getTime() > 60 * 60 * 1000) {
-    activity.count = 0;
-  }
-  
-  // Increment activity count
-  activity.count++;
-  activity.lastActivity = now;
-  suspiciousActivity.set(clientIP, activity);
-  
-  // Block IP if too many failed requests (will be implemented by error handler)
-  if (activity.count > 100) {
-    blockedIPs.add(clientIP);
-    console.warn(`Blocked IP ${clientIP} due to excessive requests`);
+  const record = suspicious.get(ip) || { count: 0, last: now };
+  if (now.getTime() - record.last.getTime() > 3_600_000) record.count = 0; // reset after 1h
+  record.count += 1;
+  record.last = now;
+  suspicious.set(ip, record);
+
+  if (record.count > 100) {
+    blockedIPs.add(ip);
+    console.warn(`[SECURITY] Blocked IP ${ip}`);
     return res.status(403).json({
       success: false,
       error: 'Access denied',
-      message: 'Your IP address has been blocked due to suspicious activity'
+      message: 'Your IP address has been blocked due to suspicious activity',
     });
   }
-  
-  next();
-};
 
-/**
- * Request size limiting middleware
- */
-export const requestSizeLimiter = (maxSize: string = '10mb') => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const contentLength = req.headers['content-length'];
-    
-    if (contentLength) {
-      const sizeInBytes = parseInt(contentLength, 10);
-      const maxSizeInBytes = parseSize(maxSize);
-      
-      if (sizeInBytes > maxSizeInBytes) {
-        return res.status(413).json({
-          success: false,
-          error: 'Request too large',
-          message: `Request size exceeds maximum allowed size of ${maxSize}`
-        });
-      }
+  return next(); // success path
+}
+
+/** ------------------------------------------------------------------
+ * 5. Request‑size limiter
+ * -----------------------------------------------------------------*/
+export function requestSizeLimiter(max: string = '10mb') {
+  const maxBytes = parseSize(max);
+  return function sizeGuard(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Response | void {
+    const len = req.headers['content-length'];
+    if (len && parseInt(len, 10) > maxBytes) {
+      return res.status(413).json({
+        success: false,
+        error: 'Request too large',
+        message: `Request size exceeds ${max}`,
+      });
     }
-    
-    next();
+    return next();
   };
-};
+}
 
-/**
- * Parse size string to bytes
- */
-const parseSize = (size: string): number => {
-  const units: { [key: string]: number } = {
-    b: 1,
-    kb: 1024,
-    mb: 1024 * 1024,
-    gb: 1024 * 1024 * 1024
-  };
-  
-  const match = size.toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/);
-  if (!match) {
-    throw new Error(`Invalid size format: ${size}`);
-  }
-  
+function parseSize(str: string): number {
+  const units: Record<string, number> = { b: 1, kb: 1024, mb: 1_048_576, gb: 1_073_741_824 };
+  const match = str.toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb)?$/);
+  if (!match) throw new Error(`Invalid size format: ${str}`);
   const value = parseFloat(match[1]);
   const unit = match[2] || 'b';
-  
   return Math.floor(value * units[unit]);
-};
+}
 
-/**
- * Security headers middleware for API responses
- */
-export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
-  // Remove server information
+/** ------------------------------------------------------------------
+ * 6. Security headers & audit logger
+ * -----------------------------------------------------------------*/
+export const securityHeaders = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   res.removeHeader('X-Powered-By');
-  
-  // Add custom security headers
   res.setHeader('X-API-Version', '1.0.0');
   res.setHeader('X-Request-ID', req.headers['x-request-id'] || generateRequestId());
-  
-  // Prevent caching of sensitive endpoints
+
   if (req.path.includes('/auth') || req.path.includes('/apikeys')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
   }
-  
   next();
 };
 
-/**
- * Generate unique request ID
- */
-const generateRequestId = (): string => {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
-/**
- * Audit logging middleware for security events
- */
-export const auditLogger = (req: Request, res: Response, next: NextFunction) => {
-  const startTime = Date.now();
-  
-  // Log security-relevant requests
-  const securityEndpoints = ['/auth', '/apikeys', '/admin'];
-  const isSecurityEndpoint = securityEndpoints.some(endpoint => req.path.includes(endpoint));
-  
-  if (isSecurityEndpoint) {
-    console.log(`[SECURITY] ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.headers['user-agent']}`);
+export const auditLogger = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  const start = Date.now();
+  const sensitive = ['/auth', '/apikeys', '/admin'];
+  const isSensitive = sensitive.some((p) => req.path.includes(p));
+  if (isSensitive) {
+    console.log(`[SECURITY] ${req.method} ${req.path} – IP: ${req.ip}`);
   }
-  
-  // Override res.json to log response
-  const originalJson = res.json;
-  res.json = function(body: any) {
-    const duration = Date.now() - startTime;
-    
-    // Log failed authentication attempts
+
+  const original = res.json.bind(res);
+  res.json = (body: any) => {
+    const duration = Date.now() - start;
     if (body && !body.success && req.path.includes('/auth')) {
-      console.warn(`[SECURITY] Failed auth attempt - IP: ${req.ip} - Duration: ${duration}ms`);
+      console.warn(`[SECURITY] Failed auth – IP: ${req.ip} – ${duration}ms`);
     }
-    
-    // Log API key operations
     if (req.path.includes('/apikeys')) {
-      console.log(`[SECURITY] API key operation - Method: ${req.method} - Status: ${res.statusCode} - Duration: ${duration}ms`);
+      console.log(
+        `[SECURITY] API key op – ${req.method} – ${res.statusCode} – ${duration}ms`
+      );
     }
-    
-    return originalJson.call(this, body);
+    return original(body);
   };
-  
+
   next();
 };
 
-/**
- * Export all security middleware as a bundle
- */
+function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** ------------------------------------------------------------------
+ * 7. Bundle export
+ * -----------------------------------------------------------------*/
 export const securityMiddleware = {
   applySecurity,
   createRateLimiter,
@@ -303,5 +264,5 @@ export const securityMiddleware = {
   ipSecurityMiddleware,
   requestSizeLimiter,
   securityHeaders,
-  auditLogger
+  auditLogger,
 };

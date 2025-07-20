@@ -22,31 +22,37 @@ const storageManager = new StorageManager();
 const entityManager = new EntityManager(sheetsClient, storageManager);
 
 // Validation middleware for entity type
-const validateEntityType = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const validateEntityType = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): express.Response | void => {
   const { type } = req.params;
-  
   if (!['shot', 'asset', 'task', 'member', 'user'].includes(type)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid entity type. Must be one of: shot, asset, task, member, user'
     } as ApiResponse<null>);
   }
-  
-  next();
+  return next();
 };
 
 // Validation middleware for entity data
-const validateEntityData = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const validateEntityData = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): express.Response | void => {
   const { type } = req.params;
   const data = req.body;
-  
+
   if (!data || typeof data !== 'object') {
     return res.status(400).json({
       success: false,
       error: 'Request body must contain entity data'
     } as ApiResponse<null>);
   }
-  
+
   // Basic validation based on entity type
   switch (type) {
     case 'shot':
@@ -57,7 +63,6 @@ const validateEntityData = (req: express.Request, res: express.Response, next: e
         } as ApiResponse<null>);
       }
       break;
-      
     case 'asset':
       if (!data.name || typeof data.name !== 'string' || data.name.trim() === '') {
         return res.status(400).json({
@@ -66,7 +71,6 @@ const validateEntityData = (req: express.Request, res: express.Response, next: e
         } as ApiResponse<null>);
       }
       break;
-      
     case 'task':
       if (!data.name || typeof data.name !== 'string' || data.name.trim() === '') {
         return res.status(400).json({
@@ -75,7 +79,6 @@ const validateEntityData = (req: express.Request, res: express.Response, next: e
         } as ApiResponse<null>);
       }
       break;
-      
     case 'member':
       if (!data.user_id || typeof data.user_id !== 'string' || data.user_id.trim() === '') {
         return res.status(400).json({
@@ -84,7 +87,6 @@ const validateEntityData = (req: express.Request, res: express.Response, next: e
         } as ApiResponse<null>);
       }
       break;
-      
     case 'user':
       if (!data.email || typeof data.email !== 'string' || data.email.trim() === '') {
         return res.status(400).json({
@@ -100,12 +102,12 @@ const validateEntityData = (req: express.Request, res: express.Response, next: e
       }
       break;
   }
-  
-  next();
+
+  return next();
 };
 
 // Get all entities of a specific type with optional filtering and pagination
-router.get('/:type', validateEntityType, async (req: express.Request, res: express.Response) => {
+router.get('/:type', validateEntityType, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { type } = req.params;
     const { 
@@ -147,7 +149,7 @@ router.get('/:type', validateEntityType, async (req: express.Request, res: expre
       } as ApiResponse<null>);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: result.data,
       meta: {
@@ -158,18 +160,17 @@ router.get('/:type', validateEntityType, async (req: express.Request, res: expre
       },
       message: `Retrieved ${result.data.length} ${type} entities`
     } as ApiResponse<typeof result.data>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error retrieving ${req.params.type} entities:`, error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to retrieve entities'
+      error: error.message || 'Failed to retrieve entities'
     } as ApiResponse<null>);
   }
 });
 
 // Create a new entity
-router.post('/:type', validateEntityType, validateEntityData, async (req: express.Request, res: express.Response) => {
+router.post('/:type', validateEntityType, validateEntityData, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { type } = req.params;
     const entityData = req.body;
@@ -193,23 +194,22 @@ router.post('/:type', validateEntityType, validateEntityData, async (req: expres
       } as ApiResponse<null>);
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: result.data,
       message: `${type} entity created successfully`
     } as ApiResponse<typeof result.data>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error creating ${req.params.type} entity:`, error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create entity'
+      error: error.message || 'Failed to create entity'
     } as ApiResponse<null>);
   }
 });
 
 // Get a specific entity
-router.get('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response) => {
+router.get('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { type, id } = req.params;
 
@@ -239,23 +239,22 @@ router.get('/:type/:id', validateEntityType, async (req: express.Request, res: e
       } as ApiResponse<null>);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: result.data,
       message: `Retrieved ${type} entity with id '${id}'`
     } as ApiResponse<typeof result.data>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error retrieving ${req.params.type} entity:`, error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to retrieve entities'
+      error: error.message || 'Failed to retrieve entities'
     } as ApiResponse<null>);
   }
 });
 
 // Update an entity
-router.put('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response) => {
+router.put('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { type, id } = req.params;
     const { force = false } = req.query;
@@ -307,23 +306,22 @@ router.put('/:type/:id', validateEntityType, async (req: express.Request, res: e
       } as ApiResponse<null>);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: result.data,
       message: `${type} entity with id '${id}' updated successfully`
     } as ApiResponse<typeof result.data>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating ${req.params.type} entity:`, error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update entity'
+      error: error.message || 'Failed to update entity'
     } as ApiResponse<null>);
   }
 });
 
 // Delete an entity
-router.delete('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response) => {
+router.delete('/:type/:id', validateEntityType, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { type, id } = req.params;
 
@@ -360,22 +358,21 @@ router.delete('/:type/:id', validateEntityType, async (req: express.Request, res
       } as ApiResponse<null>);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: `${type} entity with id '${id}' deleted successfully`
     } as ApiResponse<null>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error deleting ${req.params.type} entity:`, error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete entity'
+      error: error.message || 'Failed to delete entity'
     } as ApiResponse<null>);
   }
 });
 
 // Link entities (manage foreign key relationships)
-router.post('/:sourceType/:sourceId/link/:targetType/:targetId', validateEntityType, async (req: express.Request, res: express.Response) => {
+router.post('/:sourceType/:sourceId/link/:targetType/:targetId', validateEntityType, async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { sourceType, sourceId, targetType, targetId } = req.params;
     const { linkField } = req.body;
@@ -427,16 +424,15 @@ router.post('/:sourceType/:sourceId/link/:targetType/:targetId', validateEntityT
       } as ApiResponse<null>);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: `Successfully linked ${sourceType} '${sourceId}' to ${targetType} '${targetId}' via field '${linkField}'`
     } as ApiResponse<null>);
-
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error linking entities:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to link entities'
+      error: error.message || 'Failed to link entities'
     } as ApiResponse<null>);
   }
 });

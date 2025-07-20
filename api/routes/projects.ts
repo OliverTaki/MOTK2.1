@@ -11,104 +11,89 @@ const sheetsClient = new SheetsApiClient();
 const initService = new SheetInitializationService(sheetsClient);
 
 // Validation middleware for project configuration
-const validateProjectConfig = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const validateProjectConfig = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): express.Response | void => {
   const { project_id, storage_provider, originals_root_url, proxies_root_url } = req.body;
-  
-  // Validate required fields
+
   if (!project_id || project_id.trim() === '') {
     return res.status(400).json({
       success: false,
       error: 'project_id is required'
     } as ApiResponse<null>);
   }
-  
+
   if (!storage_provider || !['gdrive', 'box'].includes(storage_provider)) {
     return res.status(400).json({
       success: false,
       error: 'storage_provider must be either "gdrive" or "box"'
     } as ApiResponse<null>);
   }
-  
-  if (!originals_root_url || originals_root_url.trim() === '') {
-    return res.status(400).json({
-      success: false,
-      error: 'originals_root_url is required'
-    } as ApiResponse<null>);
+
+  if (!originals_root_url || !proxies_root_url) {
+    return res.status(400).json({ error: 'Missing storage URLs' });
   }
-  
-  if (!proxies_root_url || proxies_root_url.trim() === '') {
-    return res.status(400).json({
-      success: false,
-      error: 'proxies_root_url is required'
-    } as ApiResponse<null>);
-  }
-  
-  next();
+
+  return next();
 };
 
 // Initialize a new project
-router.post('/init', validateProjectConfig, async (req, res) => {
-  try {
-    const { project_id, storage_provider, originals_root_url, proxies_root_url, template } = req.body;
-    
-    // Validate connection to Google Sheets API
-    const isConnected = await sheetsClient.validateConnection();
-    if (!isConnected) {
-      return res.status(503).json({
+router.post(
+  '/init',
+  validateProjectConfig,
+  async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
+    try {
+      const { project_id, storage_provider, originals_root_url, proxies_root_url, template } = req.body;
+      const isConnected = await sheetsClient.validateConnection();
+      if (!isConnected) {
+        return res.status(503).json({
+          success: false,
+          error: 'Unable to connect to Google Sheets API'
+        } as ApiResponse<null>);
+      }
+      const projectConfig: ProjectConfig = {
+        project_id,
+        storage_provider,
+        originals_root_url,
+        proxies_root_url,
+        created_at: new Date()
+      };
+      const validation = initService.validateProjectConfig(projectConfig);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid project configuration',
+          message: validation.errors.join(', ')
+        } as ApiResponse<null>);
+      }
+      let projectMeta;
+      if (template && typeof template === 'string') {
+        projectMeta = await initService.initSheetsWithTemplate(projectConfig, template);
+      } else {
+        projectMeta = await initService.initSheets(projectConfig);
+      }
+      return res.status(201).json({
+        success: true,
+        data: projectMeta,
+        message: `Project '${project_id}' initialized successfully with ${projectMeta.sheets_created.length} sheets`
+      } as ApiResponse<typeof projectMeta>);
+    } catch (error) {
+      console.error('Error initializing project:', error);
+      return res.status(500).json({
         success: false,
-        error: 'Unable to connect to Google Sheets API'
+        error: 'Failed to initialize project',
+        message: error instanceof Error ? error.message : 'Unknown error'
       } as ApiResponse<null>);
     }
-    
-    // Prepare project configuration
-    const projectConfig: ProjectConfig = {
-      project_id,
-      storage_provider,
-      originals_root_url,
-      proxies_root_url,
-      created_at: new Date()
-    };
-    
-    // Validate project configuration
-    const validation = initService.validateProjectConfig(projectConfig);
-    if (!validation.valid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid project configuration',
-        message: validation.errors.join(', ')
-      } as ApiResponse<null>);
-    }
-    
-    // Initialize project with or without template
-    let projectMeta;
-    if (template && typeof template === 'string') {
-      projectMeta = await initService.initSheetsWithTemplate(projectConfig, template);
-    } else {
-      projectMeta = await initService.initSheets(projectConfig);
-    }
-    
-    res.status(201).json({
-      success: true,
-      data: projectMeta,
-      message: `Project '${project_id}' initialized successfully with ${projectMeta.sheets_created.length} sheets`
-    } as ApiResponse<typeof projectMeta>);
-    
-  } catch (error) {
-    console.error('Error initializing project:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to initialize project',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    } as ApiResponse<null>);
   }
-});
+);
 
 // Get project configuration
-router.get('/:projectId', async (req, res) => {
+router.get('/:projectId', async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { projectId } = req.params;
-    
-    // Validate connection to Google Sheets API
     const isConnected = await sheetsClient.validateConnection();
     if (!isConnected) {
       return res.status(503).json({
@@ -116,8 +101,6 @@ router.get('/:projectId', async (req, res) => {
         error: 'Unable to connect to Google Sheets API'
       } as ApiResponse<null>);
     }
-    
-    // Check if project_meta sheet exists
     const metaSheetExists = await sheetsClient.sheetExists('project_meta');
     if (!metaSheetExists) {
       return res.status(404).json({
@@ -125,11 +108,7 @@ router.get('/:projectId', async (req, res) => {
         error: `Project '${projectId}' not found`
       } as ApiResponse<null>);
     }
-    
-    // Get project metadata from project_meta sheet
     const metaData = await sheetsClient.getSheetData('project_meta');
-    
-    // Find project by ID
     let projectConfig = null;
     for (let i = 1; i < metaData.values.length; i++) {
       const row = metaData.values[i];
@@ -144,33 +123,27 @@ router.get('/:projectId', async (req, res) => {
         break;
       }
     }
-    
     if (!projectConfig) {
       return res.status(404).json({
         success: false,
         error: `Project '${projectId}' not found`
       } as ApiResponse<null>);
     }
-    
-    // Get additional project info
     const spreadsheetInfo = await sheetsClient.getSpreadsheetInfo();
-    
     const projectInfo = {
       ...projectConfig,
       spreadsheet_title: spreadsheetInfo.title,
       total_sheets: spreadsheetInfo.sheetCount,
       available_sheets: spreadsheetInfo.sheets
     };
-    
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: projectInfo,
       message: `Retrieved configuration for project '${projectId}'`
     } as ApiResponse<typeof projectInfo>);
-    
   } catch (error) {
     console.error('Error getting project configuration:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to retrieve project configuration',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -179,12 +152,10 @@ router.get('/:projectId', async (req, res) => {
 });
 
 // Update project configuration
-router.put('/:projectId', async (req, res) => {
+router.put('/:projectId', async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { projectId } = req.params;
     const { storage_provider, originals_root_url, proxies_root_url } = req.body;
-    
-    // Validate connection to Google Sheets API
     const isConnected = await sheetsClient.validateConnection();
     if (!isConnected) {
       return res.status(503).json({
@@ -192,8 +163,6 @@ router.put('/:projectId', async (req, res) => {
         error: 'Unable to connect to Google Sheets API'
       } as ApiResponse<null>);
     }
-    
-    // Check if project_meta sheet exists
     const metaSheetExists = await sheetsClient.sheetExists('project_meta');
     if (!metaSheetExists) {
       return res.status(404).json({
@@ -201,11 +170,7 @@ router.put('/:projectId', async (req, res) => {
         error: `Project '${projectId}' not found`
       } as ApiResponse<null>);
     }
-    
-    // Get current project metadata
     const metaData = await sheetsClient.getSheetData('project_meta');
-    
-    // Find project row
     let currentConfig = null;
     for (let i = 1; i < metaData.values.length; i++) {
       const row = metaData.values[i];
@@ -220,23 +185,18 @@ router.put('/:projectId', async (req, res) => {
         break;
       }
     }
-    
     if (!currentConfig) {
       return res.status(404).json({
         success: false,
         error: `Project '${projectId}' not found`
       } as ApiResponse<null>);
     }
-    
-    // Prepare updated configuration
     const updatedConfig = {
       ...currentConfig,
       storage_provider: storage_provider || currentConfig.storage_provider,
       originals_root_url: originals_root_url || currentConfig.originals_root_url,
       proxies_root_url: proxies_root_url || currentConfig.proxies_root_url
     };
-    
-    // Validate updated configuration
     const validation = initService.validateProjectConfig(updatedConfig);
     if (!validation.valid) {
       return res.status(400).json({
@@ -245,8 +205,6 @@ router.put('/:projectId', async (req, res) => {
         message: validation.errors.join(', ')
       } as ApiResponse<null>);
     }
-    
-    // Update the project_meta sheet
     const updates = [];
     if (storage_provider) {
       updates.push({
@@ -278,20 +236,17 @@ router.put('/:projectId', async (req, res) => {
         force: true
       });
     }
-    
     if (updates.length > 0) {
       await sheetsClient.batchUpdate({ updates });
     }
-    
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: updatedConfig,
       message: `Project '${projectId}' configuration updated successfully`
     } as ApiResponse<typeof updatedConfig>);
-    
   } catch (error) {
     console.error('Error updating project configuration:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to update project configuration',
       message: error instanceof Error ? error.message : 'Unknown error'
@@ -321,11 +276,9 @@ router.get('/templates/list', (req, res) => {
 });
 
 // Get project status and health check
-router.get('/:projectId/status', async (req, res) => {
+router.get('/:projectId/status', async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
   try {
     const { projectId } = req.params;
-    
-    // Validate connection to Google Sheets API
     const isConnected = await sheetsClient.validateConnection();
     if (!isConnected) {
       return res.status(503).json({
@@ -333,16 +286,10 @@ router.get('/:projectId/status', async (req, res) => {
         error: 'Unable to connect to Google Sheets API'
       } as ApiResponse<null>);
     }
-    
-    // Get spreadsheet info
     const spreadsheetInfo = await sheetsClient.getSpreadsheetInfo();
-    
-    // Check if all required sheets exist
     const requiredSheets = ['Shots', 'Assets', 'Tasks', 'ProjectMembers', 'Users', 'Pages', 'Fields', 'project_meta', 'Logs'];
     const existingSheets = spreadsheetInfo.sheets;
     const missingSheets = requiredSheets.filter(sheet => !existingSheets.includes(sheet));
-    
-    // Get row counts for each sheet
     const sheetStats: { [key: string]: number } = {};
     for (const sheet of existingSheets) {
       if (requiredSheets.includes(sheet)) {
@@ -350,7 +297,6 @@ router.get('/:projectId/status', async (req, res) => {
         sheetStats[sheet] = rowCount;
       }
     }
-    
     const projectStatus = {
       project_id: projectId,
       spreadsheet_title: spreadsheetInfo.title,
@@ -361,16 +307,14 @@ router.get('/:projectId/status', async (req, res) => {
       sheet_statistics: sheetStats,
       api_connection: isConnected
     };
-    
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: projectStatus,
       message: `Retrieved status for project '${projectId}'`
     } as ApiResponse<typeof projectStatus>);
-    
   } catch (error) {
     console.error('Error getting project status:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to retrieve project status',
       message: error instanceof Error ? error.message : 'Unknown error'

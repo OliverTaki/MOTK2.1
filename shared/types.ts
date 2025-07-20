@@ -80,8 +80,11 @@ export enum FieldType {
 
 export interface User {
   id: string;
+  /** alias used in backend validators */
+  user_id?: string;
   email: string;
-  name?: string | undefined;
+  name?: string;
+  role?: string;            // added for authorization middleware
   picture?: string;
   verified_email?: boolean;
   locale?: string;

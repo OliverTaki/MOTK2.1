@@ -46,6 +46,7 @@ app.use(sanitizeRequest);
 // Performance monitoring
 app.use(performanceMonitor.middleware());
 
+
 // Apply tiered rate limiting
 app.use(securityMiddleware.tieredRateLimiter);
 
