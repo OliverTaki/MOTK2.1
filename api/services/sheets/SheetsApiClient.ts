@@ -95,6 +95,40 @@ export class SheetsApiClient implements ISheetsApiClient {
     return names.includes(name);
   }
 
+  /**
+   * Cheap row count (entire sheet)
+   */
+  async getRowCount(sheetName: string): Promise<number> {
+    const data = await this.getSheetData(sheetName);
+    return data.values.length;
+  }
+
+  /**
+   * Get spreadsheet metadata: title, sheetCount, and list of sheet names
+   */
+  async getSpreadsheetInfo(): Promise<{
+    title: string;
+    sheetCount: number;
+    sheets: string[];
+  }> {
+    const resp = await this.sheets.spreadsheets.get({
+      spreadsheetId: this.spreadsheetId,
+    });
+    const titles = resp.data.sheets
+      ?.map(s => s.properties?.title)
+      .filter((t): t is string => t)
+      ?? [];
+    return {
+      title: resp.data.properties?.title ?? 'Untitled',
+      sheetCount: titles.length,
+      sheets: titles,
+    };
+  }
+
+
+
+
+
   /** get raw values */
   async getSheetData(sheetName: string, range?: string): Promise<SheetData> {
     const full = range ? `${sheetName}${range}` : sheetName;
