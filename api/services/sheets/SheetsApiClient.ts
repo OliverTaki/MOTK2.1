@@ -520,7 +520,9 @@ export class SheetsApiClient implements ISheetsApiClient {
         };
       }
 
-      const sheetId = sheet.properties.sheetId;
+      const sheetId = await sheetsClient.createSpreadsheetForProject(projectName);
+      await redis.hset(`project:${sheetId}`, { sheetId, name, owner: userId });
+
 
       // Delete the row
       await this.sheets.spreadsheets.batchUpdate({
