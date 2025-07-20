@@ -1,5 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { sheetsClient } from '../services/sheets/SheetsApiClient';
+import { SheetsApiClient } from '../services/sheets/SheetsApiClient';
+
+const sheetsClient = new SheetsApiClient();
 import { SheetInitializationService } from '../services/sheets/SheetInitializationService';
 import { ProjectConfig } from '../services/sheets/ISheetsApiClient';
 import { ApiResponse } from '../../shared/types';

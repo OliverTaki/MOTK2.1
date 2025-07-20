@@ -20,19 +20,23 @@ export class SheetsApiClient implements ISheetsApiClient {
   private readonly retryDelayMs = 1_000;
 
   constructor(spreadsheetId?: string) {
-    this.spreadsheetId =
-      spreadsheetId ?? process.env.GOOGLE_SHEETS_ID;
+    const id = spreadsheetId ?? process.env.GOOGLE_SHEETS_ID;
+    if (!id) throw new Error('GOOGLE_SHEETS_ID is required');
+    this.spreadsheetId = id;
 
-    // Parse the entire service‑account JSON from one env var
-    const credentials = JSON.parse(
-      process.env.GSA_CREDENTIALS_JSON
-    );
+    const credentials = process.env.GSA_CREDENTIALS_JSON
+      ? JSON.parse(process.env.GSA_CREDENTIALS_JSON)
+      : {
+          client_email: process.env.GSA_EMAIL,
+          private_key: (process.env.GSA_PRIVATE_KEY || '').replace(/\n/g, '\n')
+        };
+
     const auth = new GoogleAuth({
       credentials,
       scopes: [
         'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive',
-      ],
+        'https://www.googleapis.com/auth/drive'
+      ]
     });
 
     this.sheets = google.sheets({ version: 'v4', auth });
@@ -152,8 +156,8 @@ export class SheetsApiClient implements ISheetsApiClient {
         });
         return {
           success: true,
-          updatedRange: res.data.updates?.updatedRange,
-          updatedRows: res.data.updates?.updatedRows,
+          updatedRange: res.data.updates?.updatedRange || undefined,
+          updatedRows: res.data.updates?.updatedRows || undefined,
         };
       },
       `appendRows(${sheetName})`
@@ -189,8 +193,8 @@ export class SheetsApiClient implements ISheetsApiClient {
         });
         return {
           success: true,
-          updatedRange: res.data.updatedRange,
-          updatedRows: res.data.updatedRows,
+          updatedRange: res.data.updatedRange || undefined,
+          updatedRows: res.data.updatedRows || undefined,
         };
       },
       `updateRow(${sheetName}:${rowIndex})`
