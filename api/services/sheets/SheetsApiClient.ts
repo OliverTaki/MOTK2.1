@@ -30,8 +30,6 @@ export class SheetsApiClient implements ISheetsApiClient {
   private readonly retryAttempts = 3;
   private readonly retryDelay   = 1_000; // ms
 
-  private jwt: any;                     // service‑account token
-
   /* ================================================================= */
   /* Constructor                                                       */
   /* ================================================================= */
@@ -41,32 +39,23 @@ export class SheetsApiClient implements ISheetsApiClient {
       spreadsheetId || process.env.GOOGLE_SHEETS_ID || '';
 
     /* 1) Service‑account JWT                                         */
-      this.jwt = new (google.auth as any).JWT({
-        email: process.env.GSA_EMAIL,
-        key:   (process.env.GSA_PRIVATE_KEY ?? '').replace(/\\n/g, '\n'),
-        scopes: [
-          'https://www.googleapis.com/auth/spreadsheets',
-          'https://www.googleapis.com/auth/drive',
-        ],
-      });
+      const credentials = JSON.parse(process.env.GSA_CREDENTIALS_JSON || '{}');
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive',
+      ],
+    });
 
     /* 2) Sheets RPC stub                                              */
-    this.sheets = google.sheets({ version: 'v4', auth: this.jwt as any });
+    this.sheets = google.sheets({ version: 'v4', auth: auth as any });
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Auth helper – make sure token is alive before each RPC             */
-  /* ------------------------------------------------------------------ */
-  private async ensureAuth(): Promise<void> {
-    if (!this.jwt) return;
-    if (
-      !this.jwt.credentials ||
-      !this.jwt.credentials.access_token
-    ) {
-      await this.jwt.authorize();
-    }
-  }
+  
 
+
+  
   /* ================================================================== */
   /* Public high‑level helpers                                          */
   /* ================================================================== */
@@ -90,7 +79,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     range?: string,
   ): Promise<SheetData> {
     return this.executeWithRetry(async () => {
-      await this.ensureAuth();
+
 
       const fullRange = range ? `${sheetName}!${range}` : sheetName;
       const res = await this.sheets.spreadsheets.values.get({
@@ -114,7 +103,7 @@ export class SheetsApiClient implements ISheetsApiClient {
   /** Quick ping: can we talk to the spreadsheet? */
   public async validateConnection(): Promise<boolean> {
     try {
-      await this.ensureAuth();
+
       await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
         includeGridData: false,
@@ -144,7 +133,7 @@ export class SheetsApiClient implements ISheetsApiClient {
 
   async updateCell(params: CellUpdateParams): Promise<UpdateResult> {
     return this.executeWithRetry(async () => {
-      await this.ensureAuth();
+
 
       /* 1) conflict check ------------------------------------------ */
       const data       = await this.getSheetData(params.sheetName);
@@ -222,7 +211,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     headers: string[] = [],
   ): Promise<boolean> {
     return await this.executeWithRetry(async () => {
-      await this.ensureAuth();
+
       if (await this.sheetExists(sheetName)) return true;
 
       await this.sheets.spreadsheets.batchUpdate({
@@ -243,7 +232,7 @@ export class SheetsApiClient implements ISheetsApiClient {
 
   async getSheetNames(): Promise<string[]> {
     return this.executeWithRetry(async () => {
-      await this.ensureAuth();
+
       const res = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -366,7 +355,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     sheets: string[];
   }> {
     return this.executeWithRetry(async () => {
-      await this.ensureAuth();
+
       const res = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -383,7 +372,7 @@ export class SheetsApiClient implements ISheetsApiClient {
 
   async clearSheet(sheet: string): Promise<boolean> {
     try {
-      await this.ensureAuth();
+
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range: `${sheet}!A2:Z`,
@@ -400,7 +389,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     rowIndex: number,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await this.ensureAuth();
+
       const meta = await this.sheets.spreadsheets.get({
         spreadsheetId: this.spreadsheetId,
       });
@@ -435,7 +424,7 @@ export class SheetsApiClient implements ISheetsApiClient {
 
   async clearRange(range: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await this.ensureAuth();
+
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
         range,
@@ -452,7 +441,7 @@ export class SheetsApiClient implements ISheetsApiClient {
     values: any[],
   ): Promise<UpdateResult> {
     try {
-      await this.ensureAuth();
+
       const res = await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
         range: `${sheet}!${row}:${row}`,

@@ -1,12 +1,12 @@
 import express from 'express';
-import { SheetsApiClient } from '../services/sheets/SheetsApiClient';
+import { sheetsClient } from '../services/sheets/SheetsApiClient';
 import { CellUpdateParams, BatchUpdateParams } from '../services/sheets/ISheetsApiClient';
 import { ApiResponse } from '../../shared/types';
 
 const router = express.Router();
 
 // Initialize sheets client
-const sheetsClient = new SheetsApiClient();
+
 
 // Validation middleware for sheet names
 const validateSheetName = (
