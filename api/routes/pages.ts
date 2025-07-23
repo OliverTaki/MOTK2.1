@@ -4,7 +4,16 @@ import { authenticateToken as authMiddleware } from '../middleware/auth'; // ←
 import { PageConfig, PageType, EntityType } from '../../shared/types';
 
 const router = express.Router();
-const sheetsClient = new SheetsApiClient();
+
+// Initialize services lazily
+let sheetsClient: SheetsApiClient | null = null;
+
+function getSheetsClient(): SheetsApiClient {
+  if (!sheetsClient) {
+    sheetsClient = new SheetsApiClient();
+  }
+  return sheetsClient!;
+}
 
 /**
  * Get all page configurations
@@ -17,7 +26,7 @@ router.get(
   async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
     try {
       const entityType = req.query.entity as EntityType | undefined;
-      const pagesData = await sheetsClient.getSheetData('Pages');
+      const pagesData = await getSheetsClient().getSheetData('Pages');
       if (!pagesData || !pagesData.values || pagesData.values.length <= 1) {
         return res.json({ success: true, data: [] });
       }
@@ -60,7 +69,7 @@ router.get(
   async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
     try {
       const { pageId } = req.params;
-      const pagesData = await sheetsClient.getSheetData('Pages');
+      const pagesData = await getSheetsClient().getSheetData('Pages');
       if (!pagesData || !pagesData.values || pagesData.values.length <= 1) {
         return res.status(404).json({
           success: false,
@@ -129,7 +138,7 @@ router.post(
         now,
         now
       ];
-      await sheetsClient.appendRows('Pages', [newPageRow]);
+      await getSheetsClient().appendRows('Pages', [newPageRow]);
       const pageConfig: PageConfig = {
         page_id: pageId,
         name,
@@ -162,7 +171,7 @@ router.put(
     try {
       const { pageId } = req.params;
       const updates = req.body;
-      const pagesData = await sheetsClient.getSheetData('Pages');
+      const pagesData = await getSheetsClient().getSheetData('Pages');
       if (!pagesData || !pagesData.values || pagesData.values.length <= 1) {
         return res.status(404).json({
           success: false,
@@ -196,7 +205,7 @@ router.put(
       const now = new Date().toISOString();
       pageRow[headers.indexOf('modified_date')] = now;
       const rowNumber = pageIndex + 2;
-      await sheetsClient.updateRow('Pages', rowNumber, pageRow);
+      await getSheetsClient().updateRow('Pages', rowNumber, pageRow);
       const configObj = JSON.parse(pageRow[headers.indexOf('config')] || '{}');
       const pageConfig: PageConfig = {
         page_id: pageRow[headers.indexOf('page_id')],
@@ -229,7 +238,7 @@ router.delete(
   async (req: express.Request, res: express.Response): Promise<express.Response | void> => {
     try {
       const { pageId } = req.params;
-      const pagesData = await sheetsClient.getSheetData('Pages');
+      const pagesData = await getSheetsClient().getSheetData('Pages');
       if (!pagesData || !pagesData.values || pagesData.values.length <= 1) {
         return res.status(404).json({
           success: false,
@@ -248,7 +257,7 @@ router.delete(
         });
       }
       const rowNumber = pageIndex + 2;
-      await sheetsClient.deleteRow('Pages', rowNumber);
+      await getSheetsClient().deleteRow('Pages', rowNumber);
       return res.json({ success: true });
     } catch (error: any) {
       console.error('Error deleting page configuration:', error);
@@ -277,7 +286,7 @@ router.put(
           error: 'Missing shared parameter'
         });
       }
-      const pagesData = await sheetsClient.getSheetData('Pages');
+      const pagesData = await getSheetsClient().getSheetData('Pages');
       if (!pagesData || !pagesData.values || pagesData.values.length <= 1) {
         return res.status(404).json({
           success: false,
@@ -300,7 +309,7 @@ router.put(
       const now = new Date().toISOString();
       pageRow[headers.indexOf('modified_date')] = now;
       const rowNumber = pageIndex + 2;
-      await sheetsClient.updateRow('Pages', rowNumber, pageRow);
+      await getSheetsClient().updateRow('Pages', rowNumber, pageRow);
       const configObj = JSON.parse(pageRow[headers.indexOf('config')] || '{}');
       const pageConfig: PageConfig = {
         page_id: pageRow[headers.indexOf('page_id')],

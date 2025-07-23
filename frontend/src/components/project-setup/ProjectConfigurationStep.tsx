@@ -123,10 +123,10 @@ export const ProjectConfigurationStep: React.FC<ProjectConfigurationStepProps> =
             <MenuItem value="">
               <em>Default Template</em>
             </MenuItem>
-            <MenuItem value="animation">Animation Project</MenuItem>
-            <MenuItem value="live-action">Live Action Project</MenuItem>
-            <MenuItem value="commercial">Commercial Project</MenuItem>
-            <MenuItem value="documentary">Documentary Project</MenuItem>
+            <MenuItem value="animation_series">Animation Series</MenuItem>
+            <MenuItem value="short_film">Short Film</MenuItem>
+            <MenuItem value="commercial">Commercial</MenuItem>
+            <MenuItem value="music_video">Music Video</MenuItem>
           </Select>
           <FormHelperText>
             Choose a template to pre-populate your project with sample data and configurations

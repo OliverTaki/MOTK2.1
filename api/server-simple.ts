@@ -59,30 +59,15 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Mock entities endpoints
-app.get('/api/entities/asset', (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Assets retrieved successfully'
-  });
-});
+// Import routes
+import projectsRouter from './routes/projects';
+import sheetsRouter from './routes/sheets';
+import entitiesRouter from './routes/entities';
 
-app.get('/api/entities/shot', (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Shots retrieved successfully'
-  });
-});
-
-app.get('/api/entities/task', (req, res) => {
-  res.json({
-    success: true,
-    data: [],
-    message: 'Tasks retrieved successfully'
-  });
-});
+// Register routes
+app.use('/api/projects', projectsRouter);
+app.use('/api/sheets', sheetsRouter);
+app.use('/api/entities', entitiesRouter);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

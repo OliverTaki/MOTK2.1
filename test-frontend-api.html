@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend API</title>
+</head>
+<body>
+    <h1>Test Frontend API</h1>
+    <button onclick="testAPI()">Test Project Init</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/projects/init', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        project_id: 'html-test-' + Date.now(),
+                        storage_provider: 'gdrive',
+                        originals_root_url: 'https://drive.google.com/drive/folders/1bGlJgxkCwKjtTpKY7v1AtbvAPro9Zt2u',
+                        proxies_root_url: 'https://drive.google.com/drive/folders/1cWedhZ1l_O1ehKPD5OB1qAZbws2G1nbU'
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                
+                if (!response.ok) {
+                    resultDiv.innerHTML += '<p style="color: red;">Status: ' + response.status + '</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

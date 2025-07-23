@@ -78,6 +78,13 @@ export const getProjectTemplates = async (): Promise<ApiResponse<ProjectTemplate
 };
 
 /**
+ * Get all available projects
+ */
+export const getAllProjects = async (): Promise<ApiResponse<ProjectConfig[]>> => {
+  return apiRequest<ProjectConfig[]>('GET', '/projects');
+};
+
+/**
  * Get project status and health check
  */
 export const getProjectStatus = async (

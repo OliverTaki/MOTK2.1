@@ -29,6 +29,9 @@ export class SheetInitializationService {
         throw new Error('Failed to create any sheets');
       }
 
+      // Insert field names as second header row for each sheet
+      await this.insertFieldNamesHeaders();
+
       // Insert sample data for each sheet
       await this.insertSampleData(projectConfig);
 
@@ -56,44 +59,44 @@ export class SheetInitializationService {
       {
         name: 'Shots',
         headers: [
-          'shot_id', 'episode', 'scene', 'title', 'status', 'priority',
-          'due_date', 'timecode_fps', 'folder_label', 'folder_url',
-          'thumbnails', 'file_list', 'versions', 'notes'
+          'field_001', 'field_002', 'field_003', 'field_004', 'field_005', 'field_006',
+          'field_007', 'field_008', 'field_009', 'field_010',
+          'field_011', 'field_012', 'field_013', 'field_014'
         ]
       },
       {
         name: 'Assets',
         headers: [
-          'asset_id', 'name', 'asset_type', 'status', 'overlap_sensitive',
-          'folder_label', 'folder_url', 'thumbnails', 'file_list', 'versions', 'notes'
+          'field_015', 'field_016', 'field_017', 'field_018', 'field_019',
+          'field_020', 'field_021', 'field_022', 'field_023', 'field_024', 'field_025'
         ]
       },
       {
         name: 'Tasks',
         headers: [
-          'task_id', 'name', 'status', 'assignee_id', 'start_date',
-          'end_date', 'shot_id', 'folder_label', 'folder_url', 'notes'
+          'field_026', 'field_027', 'field_028', 'field_029', 'field_030',
+          'field_031', 'field_032', 'field_033', 'field_034', 'field_035'
         ]
       },
       {
         name: 'ProjectMembers',
         headers: [
-          'member_id', 'user_id', 'role', 'department', 'permissions',
-          'joined_date', 'active'
+          'field_036', 'field_037', 'field_038', 'field_039', 'field_040',
+          'field_041', 'field_042'
         ]
       },
       {
         name: 'Users',
         headers: [
-          'user_id', 'email', 'name', 'google_id', 'avatar_url',
-          'created_date', 'last_login'
+          'field_043', 'field_044', 'field_045', 'field_046', 'field_047',
+          'field_048', 'field_049'
         ]
       },
       {
         name: 'Pages',
         headers: [
-          'page_id', 'name', 'type', 'config', 'shared', 'created_by',
-          'created_date', 'modified_date'
+          'field_050', 'field_051', 'field_052', 'field_053', 'field_054', 'field_055',
+          'field_056', 'field_057'
         ]
       },
       {
@@ -113,11 +116,59 @@ export class SheetInitializationService {
       {
         name: 'Logs',
         headers: [
-          'log_id', 'timestamp', 'user_id', 'action', 'entity_type',
-          'entity_id', 'changes', 'ip_address'
+          'field_058', 'field_059', 'field_060', 'field_061', 'field_062',
+          'field_063', 'field_064', 'field_065'
         ]
       }
     ];
+  }
+
+  /**
+   * Insert field names as second header row for all sheets
+   */
+  private async insertFieldNamesHeaders(): Promise<void> {
+    // Shots field names
+    await this.sheetsClient.appendRows('Shots', [[
+      'shot_id', 'episode', 'scene', 'title', 'status', 'priority',
+      'due_date', 'timecode_fps', 'folder_label', 'folder_url',
+      'thumbnails', 'file_list', 'versions', 'notes'
+    ]]);
+
+    // Assets field names
+    await this.sheetsClient.appendRows('Assets', [[
+      'asset_id', 'name', 'asset_type', 'status', 'overlap_sensitive',
+      'folder_label', 'folder_url', 'thumbnails', 'file_list', 'versions', 'notes'
+    ]]);
+
+    // Tasks field names
+    await this.sheetsClient.appendRows('Tasks', [[
+      'task_id', 'name', 'status', 'assignee_id', 'start_date',
+      'end_date', 'shot_id', 'folder_label', 'folder_url', 'notes'
+    ]]);
+
+    // ProjectMembers field names
+    await this.sheetsClient.appendRows('ProjectMembers', [[
+      'member_id', 'user_id', 'role', 'department', 'permissions',
+      'joined_date', 'active'
+    ]]);
+
+    // Users field names
+    await this.sheetsClient.appendRows('Users', [[
+      'user_id', 'email', 'name', 'google_id', 'avatar_url',
+      'created_date', 'last_login'
+    ]]);
+
+    // Pages field names
+    await this.sheetsClient.appendRows('Pages', [[
+      'page_id', 'name', 'type', 'config', 'shared', 'created_by',
+      'created_date', 'modified_date'
+    ]]);
+
+    // Logs field names
+    await this.sheetsClient.appendRows('Logs', [[
+      'log_id', 'timestamp', 'user_id', 'action', 'entity_type',
+      'entity_id', 'changes', 'ip_address'
+    ]]);
   }
 
   /**
@@ -153,6 +204,7 @@ export class SheetInitializationService {
    * Insert sample shots data
    */
   private async insertSampleShots(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const sampleShots = [
       [
         'shot_001', 'EP01', 'SC01', 'Opening Scene', ShotStatus.NOT_STARTED, '1',
@@ -178,6 +230,7 @@ export class SheetInitializationService {
    * Insert sample assets data
    */
   private async insertSampleAssets(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const sampleAssets = [
       [
         'asset_001', 'Main Character', AssetType.CHARACTER, AssetStatus.IN_PROGRESS, 'false',
@@ -203,6 +256,7 @@ export class SheetInitializationService {
    * Insert sample tasks data
    */
   private async insertSampleTasks(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const sampleTasks = [
       [
         'task_001', 'Character Modeling', TaskStatus.IN_PROGRESS, 'user_001',
@@ -228,6 +282,7 @@ export class SheetInitializationService {
    * Insert sample users data
    */
   private async insertSampleUsers(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const sampleUsers = [
       [
         'user_001', 'animator@example.com', 'Alice Animator', 'google_id_001',
@@ -250,6 +305,7 @@ export class SheetInitializationService {
    * Insert sample project members data
    */
   private async insertSampleProjectMembers(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const sampleMembers = [
       [
         'member_001', 'user_001', 'Animator', 'ANIMATION', 'edit',
@@ -273,7 +329,7 @@ export class SheetInitializationService {
    */
   private async insertFieldDefinitions(): Promise<void> {
     const fieldDefinitions = [
-      // Shot fields
+      // Shot fields (field_001 to field_014)
       ['field_001', 'shot', 'shot_id', FieldType.TEXT, 'false', 'true', ''],
       ['field_002', 'shot', 'episode', FieldType.TEXT, 'true', 'false', ''],
       ['field_003', 'shot', 'scene', FieldType.TEXT, 'true', 'false', ''],
@@ -282,42 +338,75 @@ export class SheetInitializationService {
       ['field_006', 'shot', 'priority', FieldType.NUMBER, 'true', 'false', ''],
       ['field_007', 'shot', 'due_date', FieldType.DATE, 'true', 'false', ''],
       ['field_008', 'shot', 'timecode_fps', FieldType.TEXT, 'true', 'false', ''],
-      ['field_009', 'shot', 'thumbnails', FieldType.THUMBNAILS, 'true', 'false', ''],
-      ['field_010', 'shot', 'file_list', FieldType.FILE_LIST, 'true', 'false', ''],
-      ['field_011', 'shot', 'versions', FieldType.VERSIONS, 'true', 'false', ''],
+      ['field_009', 'shot', 'folder_label', FieldType.TEXT, 'true', 'false', ''],
+      ['field_010', 'shot', 'folder_url', FieldType.URL, 'true', 'false', ''],
+      ['field_011', 'shot', 'thumbnails', FieldType.THUMBNAILS, 'true', 'false', ''],
+      ['field_012', 'shot', 'file_list', FieldType.FILE_LIST, 'true', 'false', ''],
+      ['field_013', 'shot', 'versions', FieldType.VERSIONS, 'true', 'false', ''],
+      ['field_014', 'shot', 'notes', FieldType.TEXT, 'true', 'false', ''],
       
-      // Asset fields
-      ['field_012', 'asset', 'asset_id', FieldType.TEXT, 'false', 'true', ''],
-      ['field_013', 'asset', 'name', FieldType.TEXT, 'true', 'true', ''],
-      ['field_014', 'asset', 'asset_type', FieldType.SELECT, 'true', 'true', 'character,prop,environment,effect,other'],
-      ['field_015', 'asset', 'status', FieldType.SELECT, 'true', 'true', 'not_started,in_progress,review,approved,completed'],
-      ['field_016', 'asset', 'overlap_sensitive', FieldType.CHECKBOX, 'true', 'false', ''],
-      ['field_017', 'asset', 'thumbnails', FieldType.THUMBNAILS, 'true', 'false', ''],
-      ['field_018', 'asset', 'file_list', FieldType.FILE_LIST, 'true', 'false', ''],
-      ['field_019', 'asset', 'versions', FieldType.VERSIONS, 'true', 'false', ''],
+      // Asset fields (field_015 to field_025)
+      ['field_015', 'asset', 'asset_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_016', 'asset', 'name', FieldType.TEXT, 'true', 'true', ''],
+      ['field_017', 'asset', 'asset_type', FieldType.SELECT, 'true', 'true', 'character,prop,environment,effect,other'],
+      ['field_018', 'asset', 'status', FieldType.SELECT, 'true', 'true', 'not_started,in_progress,review,approved,completed'],
+      ['field_019', 'asset', 'overlap_sensitive', FieldType.CHECKBOX, 'true', 'false', ''],
+      ['field_020', 'asset', 'folder_label', FieldType.TEXT, 'true', 'false', ''],
+      ['field_021', 'asset', 'folder_url', FieldType.URL, 'true', 'false', ''],
+      ['field_022', 'asset', 'thumbnails', FieldType.THUMBNAILS, 'true', 'false', ''],
+      ['field_023', 'asset', 'file_list', FieldType.FILE_LIST, 'true', 'false', ''],
+      ['field_024', 'asset', 'versions', FieldType.VERSIONS, 'true', 'false', ''],
+      ['field_025', 'asset', 'notes', FieldType.TEXT, 'true', 'false', ''],
       
-      // Task fields
-      ['field_020', 'task', 'task_id', FieldType.TEXT, 'false', 'true', ''],
-      ['field_021', 'task', 'name', FieldType.TEXT, 'true', 'true', ''],
-      ['field_022', 'task', 'status', FieldType.SELECT, 'true', 'true', 'not_started,in_progress,blocked,review,completed'],
-      ['field_023', 'task', 'assignee_id', FieldType.LINK_USER, 'true', 'false', ''],
-      ['field_024', 'task', 'start_date', FieldType.DATE, 'true', 'false', ''],
-      ['field_025', 'task', 'end_date', FieldType.DATE, 'true', 'false', ''],
-      ['field_026', 'task', 'shot_id', FieldType.LINK_SHOT, 'true', 'false', ''],
+      // Task fields (field_026 to field_035)
+      ['field_026', 'task', 'task_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_027', 'task', 'name', FieldType.TEXT, 'true', 'true', ''],
+      ['field_028', 'task', 'status', FieldType.SELECT, 'true', 'true', 'not_started,in_progress,blocked,review,completed'],
+      ['field_029', 'task', 'assignee_id', FieldType.LINK_USER, 'true', 'false', ''],
+      ['field_030', 'task', 'start_date', FieldType.DATE, 'true', 'false', ''],
+      ['field_031', 'task', 'end_date', FieldType.DATE, 'true', 'false', ''],
+      ['field_032', 'task', 'shot_id', FieldType.LINK_SHOT, 'true', 'false', ''],
+      ['field_033', 'task', 'folder_label', FieldType.TEXT, 'true', 'false', ''],
+      ['field_034', 'task', 'folder_url', FieldType.URL, 'true', 'false', ''],
+      ['field_035', 'task', 'notes', FieldType.TEXT, 'true', 'false', ''],
       
-      // Member fields
-      ['field_027', 'member', 'member_id', FieldType.TEXT, 'false', 'true', ''],
-      ['field_028', 'member', 'user_id', FieldType.LINK_USER, 'true', 'true', ''],
-      ['field_029', 'member', 'role', FieldType.TEXT, 'true', 'true', ''],
-      ['field_030', 'member', 'department', FieldType.SELECT, 'true', 'true', 'ANIMATION,PRODUCTION,CAMERA,EDIT,SOUND,VFX'],
-      ['field_031', 'member', 'permissions', FieldType.SELECT, 'true', 'true', 'view,edit,admin'],
+      // Member fields (field_036 to field_042)
+      ['field_036', 'member', 'member_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_037', 'member', 'user_id', FieldType.LINK_USER, 'true', 'true', ''],
+      ['field_038', 'member', 'role', FieldType.TEXT, 'true', 'true', ''],
+      ['field_039', 'member', 'department', FieldType.SELECT, 'true', 'true', 'ANIMATION,PRODUCTION,CAMERA,EDIT,SOUND,VFX'],
+      ['field_040', 'member', 'permissions', FieldType.SELECT, 'true', 'true', 'view,edit,admin'],
+      ['field_041', 'member', 'joined_date', FieldType.DATE, 'true', 'false', ''],
+      ['field_042', 'member', 'active', FieldType.CHECKBOX, 'true', 'false', ''],
       
-      // User fields
-      ['field_032', 'user', 'user_id', FieldType.TEXT, 'false', 'true', ''],
-      ['field_033', 'user', 'email', FieldType.TEXT, 'true', 'true', ''],
-      ['field_034', 'user', 'name', FieldType.TEXT, 'true', 'true', ''],
-      ['field_035', 'user', 'google_id', FieldType.TEXT, 'false', 'true', ''],
-      ['field_036', 'user', 'avatar_url', FieldType.URL, 'true', 'false', '']
+      // User fields (field_043 to field_049)
+      ['field_043', 'user', 'user_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_044', 'user', 'email', FieldType.TEXT, 'true', 'true', ''],
+      ['field_045', 'user', 'name', FieldType.TEXT, 'true', 'true', ''],
+      ['field_046', 'user', 'google_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_047', 'user', 'avatar_url', FieldType.URL, 'true', 'false', ''],
+      ['field_048', 'user', 'created_date', FieldType.DATE, 'false', 'false', ''],
+      ['field_049', 'user', 'last_login', FieldType.DATE, 'false', 'false', ''],
+      
+      // Page fields (field_050 to field_057)
+      ['field_050', 'page', 'page_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_051', 'page', 'name', FieldType.TEXT, 'true', 'true', ''],
+      ['field_052', 'page', 'type', FieldType.SELECT, 'true', 'true', 'table,overview,detail,schedule,chat,forum'],
+      ['field_053', 'page', 'config', FieldType.TEXT, 'true', 'false', ''],
+      ['field_054', 'page', 'shared', FieldType.CHECKBOX, 'true', 'false', ''],
+      ['field_055', 'page', 'created_by', FieldType.LINK_USER, 'false', 'true', ''],
+      ['field_056', 'page', 'created_date', FieldType.DATE, 'false', 'false', ''],
+      ['field_057', 'page', 'modified_date', FieldType.DATE, 'false', 'false', ''],
+      
+      // Log fields (field_058 to field_065)
+      ['field_058', 'log', 'log_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_059', 'log', 'timestamp', FieldType.DATE, 'false', 'true', ''],
+      ['field_060', 'log', 'user_id', FieldType.LINK_USER, 'false', 'true', ''],
+      ['field_061', 'log', 'action', FieldType.TEXT, 'false', 'true', ''],
+      ['field_062', 'log', 'entity_type', FieldType.SELECT, 'false', 'true', 'shot,asset,task,member,user,page'],
+      ['field_063', 'log', 'entity_id', FieldType.TEXT, 'false', 'true', ''],
+      ['field_064', 'log', 'changes', FieldType.TEXT, 'false', 'false', ''],
+      ['field_065', 'log', 'ip_address', FieldType.TEXT, 'false', 'false', '']
     ];
 
     await this.sheetsClient.appendRows('Fields', fieldDefinitions);
@@ -327,6 +416,7 @@ export class SheetInitializationService {
    * Insert sample page configurations
    */
   private async insertSamplePages(): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const samplePages = [
       [
         'page_001', 'Shots Overview', 'table', 
@@ -385,6 +475,7 @@ export class SheetInitializationService {
    * Insert initial log entry
    */
   private async insertInitialLog(projectConfig: ProjectConfig): Promise<void> {
+    // Insert sample data (headers are already created by createMultipleSheets)
     const logEntry = [
       'log_001',
       new Date().toISOString(),

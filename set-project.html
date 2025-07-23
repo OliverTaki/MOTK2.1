@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Set Project</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Set Project in localStorage</h1>
+  <p>Use this tool to manually set the project ID in localStorage for the MOTK frontend.</p>
+  
+  <div class="form-group">
+    <label for="projectId">Project ID:</label>
+    <input type="text" id="projectId" value="Oliver05">
+  </div>
+  
+  <button onclick="setProject()">Set Project</button>
+  <button onclick="clearProject()">Clear Project</button>
+  
+  <div class="result" id="result">
+    <p>Current localStorage values:</p>
+    <div id="currentValues"></div>
+  </div>
+  
+  <script>
+    function updateCurrentValues() {
+      const currentValues = document.getElementById('currentValues');
+      const selectedProjectId = localStorage.getItem('selectedProjectId');
+      const lastProjectSelection = localStorage.getItem('lastProjectSelection');
+      
+      currentValues.innerHTML = `
+        <p><strong>selectedProjectId:</strong> ${selectedProjectId || 'not set'}</p>
+        <p><strong>lastProjectSelection:</strong> ${lastProjectSelection || 'not set'}</p>
+      `;
+    }
+    
+    function setProject() {
+      try {
+        const projectId = document.getElementById('projectId').value;
+        localStorage.setItem('selectedProjectId', projectId);
+        localStorage.setItem('lastProjectSelection', new Date().toISOString());
+        
+        const result = document.getElementById('result');
+        result.innerHTML = `
+          <p>✅ Project set to '${projectId}' in localStorage</p>
+          <p>🔄 <a href="http://localhost:3000" target="_blank">Open the frontend</a> to load the project</p>
+        `;
+        
+        updateCurrentValues();
+      } catch (error) {
+        const result = document.getElementById('result');
+        result.innerHTML = `<p>❌ Error setting project: ${error.message}</p>`;
+      }
+    }
+    
+    function clearProject() {
+      try {
+        localStorage.removeItem('selectedProjectId');
+        localStorage.removeItem('lastProjectSelection');
+        
+        const result = document.getElementById('result');
+        result.innerHTML = `
+          <p>✅ Project cleared from localStorage</p>
+          <p>🔄 <a href="http://localhost:3000" target="_blank">Open the frontend</a> to see the changes</p>
+        `;
+        
+        updateCurrentValues();
+      } catch (error) {
+        const result = document.getElementById('result');
+        result.innerHTML = `<p>❌ Error clearing project: ${error.message}</p>`;
+      }
+    }
+    
+    // Initialize
+    updateCurrentValues();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 /*  Google Sheets client for MOTK (service‑account auth)                    */
 /* -------------------------------------------------------------------------- */
 
-
+import { google, sheets_v4 } from 'googleapis';
 import {
   ISheetsApiClient,
   SheetData,
@@ -15,23 +15,51 @@ import {
 } from './ISheetsApiClient';
 
 export class SheetsApiClient implements ISheetsApiClient {
-  private sheets: sheets_v4.Sheets;
   private spreadsheetId: string;
+  private _sheets: sheets_v4.Sheets | null = null;
 
   constructor(spreadsheetId?: string) {
     this.spreadsheetId = spreadsheetId ?? process.env.GOOGLE_SHEETS_ID ?? '';
-    // Prefer the googleapis‑bundled GoogleAuth
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
+  }
+
+  private get sheets(): sheets_v4.Sheets {
+    if (!this._sheets) {
+      // Load environment variables if not already loaded
+      if (!process.env.GOOGLE_PROJECT_ID) {
+        require('dotenv').config();
+      }
+      
+      // Debug logging
+      console.log('🔧 SheetsApiClient lazy initialization:');
+      console.log('  GOOGLE_PROJECT_ID:', process.env.GOOGLE_PROJECT_ID ? '✅' : '❌');
+      console.log('  GSA_EMAIL:', process.env.GSA_EMAIL ? '✅' : '❌');
+      console.log('  GSA_PRIVATE_KEY:', process.env.GSA_PRIVATE_KEY ? '✅' : '❌');
+      
+      const credentials = {
+        type: 'service_account',
+        project_id: process.env.GOOGLE_PROJECT_ID ?? '',
         client_email: process.env.GSA_EMAIL ?? '',
-        private_key: (process.env.GSA_PRIVATE_KEY ?? '').replace(/\n/g, '\n'),
-      },
-      scopes: [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive',
-      ],
-    });
-    this.sheets = google.sheets({ version: 'v4', auth });
+        private_key: (process.env.GSA_PRIVATE_KEY ?? '').replace(/\\n/g, '\n'),
+      };
+      
+      console.log('  Credentials created:', {
+        type: credentials.type,
+        project_id: credentials.project_id,
+        client_email: credentials.client_email,
+        private_key_length: credentials.private_key.length
+      });
+      
+      // Prefer the googleapis‑bundled GoogleAuth
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: [
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive',
+        ],
+      });
+      this._sheets = google.sheets({ version: 'v4', auth });
+    }
+    return this._sheets;
   }
 
   /** retry helper with exponential backoff */
@@ -152,15 +180,14 @@ export class SheetsApiClient implements ISheetsApiClient {
       }),
       `appendRows(${sheetName})`
     );
-    const rawRange = res.data.updates?.updatedRange;
-    const updatedRange = rawRange === null ? undefined : rawRange;
-    const rawRows  = res.data.updates?.updatedRows;
-    const updatedRows = rawRows === null ? undefined : rawRows;
+    const updatedRange = res.data.updates?.updatedRange || undefined;
+    const updatedRows = res.data.updates?.updatedRows || undefined;
     return {
       success: true,
       updatedRange,
       updatedRows
     };
+  }
 
   /** clear everything but headers */
   async clearSheet(sheetName: string): Promise<boolean> {
@@ -187,8 +214,8 @@ export class SheetsApiClient implements ISheetsApiClient {
     );
     return {
       success: true,
-      updatedRange: res.data.updatedRange === null ? undefined : res.data.updatedRange,
-      updatedRows: res.data.updatedRows === null ? undefined : res.data.updatedRows,
+      updatedRange: res.data.updatedRange || undefined,
+      updatedRows: res.data.updatedRows || undefined,
     };
   }
 
@@ -207,7 +234,7 @@ export class SheetsApiClient implements ISheetsApiClient {
           params.fieldId
         );
 
-        if (params.force && current == params.originalValue) {
+        if (!params.force && current !== params.originalValue) {
           return { success: false, conflict: true, currentValue: current };
         }
 
@@ -228,8 +255,8 @@ export class SheetsApiClient implements ISheetsApiClient {
         return {
           success: true,
           conflict: false,
-          updatedRange: res.data.updatedRange,
-          updatedRows: res.data.updatedRows,
+          updatedRange: res.data.updatedRange || undefined,
+          updatedRows: res.data.updatedRows || undefined,
         };
       },
       `updateCell(${params.sheetName}|${params.entityId}/${params.fieldId})`
@@ -266,19 +293,21 @@ export class SheetsApiClient implements ISheetsApiClient {
     return this.executeWithRetry(async () => {
       // 1) Check if sheet already exists
       const names = await this.getSheetNames();
-      if (names.includes(sheetName)) return true;
+      const sheetExists = names.includes(sheetName);
 
-      // 2) Add sheet
-      await this.sheets.spreadsheets.batchUpdate({
-        spreadsheetId: this.spreadsheetId,
-        requestBody: {
-          requests: [
-            { addSheet: { properties: { title: sheetName } } }
-          ]
-        }
-      });
+      // 2) Add sheet if it doesn't exist
+      if (!sheetExists) {
+        await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          requestBody: {
+            requests: [
+              { addSheet: { properties: { title: sheetName } } }
+            ]
+          }
+        });
+      }
 
-      // 3) Add headers row if provided
+      // 3) Add headers row if provided (always, even if sheet existed)
       if (headers.length) {
         await this.appendRows(sheetName, [headers]);
       }

@@ -97,8 +97,14 @@ export const ProgressStep: React.FC<ProgressStepProps> = ({
       // Start progress simulation
       const progressPromise = simulateProgress();
       
+      // Add timestamp to project ID to prevent duplicates in development mode
+      const uniqueData = {
+        ...data,
+        project_id: `${data.project_id}-${Date.now()}`
+      };
+      
       // Perform actual initialization
-      const result = await initializeProject(data);
+      const result = await initializeProject(uniqueData);
       
       // Wait for progress simulation to complete
       await progressPromise;

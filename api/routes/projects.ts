@@ -1,13 +1,27 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { SheetsApiClient } from '../services/sheets/SheetsApiClient';
-
-const sheetsClient = new SheetsApiClient();
 import { SheetInitializationService } from '../services/sheets/SheetInitializationService';
 import { ProjectConfig } from '../services/sheets/ISheetsApiClient';
 import { ApiResponse } from '../../shared/types';
 
 const router = express.Router();
-const initService = new SheetInitializationService(sheetsClient);
+
+let sheetsClient: SheetsApiClient | null = null;
+let initService: SheetInitializationService | null = null;
+
+function getSheetsClient(): SheetsApiClient {
+  if (!sheetsClient) {
+    sheetsClient = new SheetsApiClient();
+  }
+  return sheetsClient!; // Non-null assertion since we just created it if it was null
+}
+
+function getInitService(): SheetInitializationService {
+  if (!initService) {
+    initService = new SheetInitializationService(getSheetsClient());
+  }
+  return initService!; // Non-null assertion since we just created it if it was null
+}
 
 /**
  * Validate incoming project configuration payload
@@ -55,7 +69,7 @@ router.post(
       const { project_id, storage_provider, originals_root_url, proxies_root_url, template } = req.body;
 
       // Check Sheets API connectivity
-      if (!(await sheetsClient.validateConnection())) {
+      if (!(await getSheetsClient().validateConnection())) {
         return res.status(503).json({
           success: false,
           error: 'Unable to connect to Google Sheets API'
@@ -70,7 +84,7 @@ router.post(
         created_at: new Date(),
       };
 
-      const validation = initService.validateProjectConfig(projectConfig);
+      const validation = getInitService().validateProjectConfig(projectConfig);
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
@@ -82,8 +96,8 @@ router.post(
       // If a template name was provided, use it
       const projectMeta = 
         template && typeof template === 'string'
-          ? await initService.initSheetsWithTemplate(projectConfig, template)
-          : await initService.initSheets(projectConfig);
+          ? await getInitService().initSheetsWithTemplate(projectConfig, template)
+          : await getInitService().initSheets(projectConfig);
 
       return res.status(201).json({
         success: true,
@@ -112,7 +126,7 @@ router.get(
     try {
       const { projectId } = req.params;
 
-      if (!(await sheetsClient.validateConnection())) {
+      if (!(await getSheetsClient().validateConnection())) {
         return res.status(503).json({
           success: false,
           error: 'Unable to connect to Google Sheets API'
@@ -120,7 +134,7 @@ router.get(
       }
 
       // Ensure the project_meta sheet exists
-      if (!(await sheetsClient.sheetExists('project_meta'))) {
+      if (!(await getSheetsClient().sheetExists('project_meta'))) {
         return res.status(404).json({
           success: false,
           error: `Project '${projectId}' not found`
@@ -128,7 +142,7 @@ router.get(
       }
 
       // Read the meta sheet
-      const metaData = await sheetsClient.getSheetData('project_meta');
+      const metaData = await getSheetsClient().getSheetData('project_meta');
       let projectConfig: ProjectConfig | null = null;
       for (let i = 1; i < metaData.values.length; i++) {
         const row = metaData.values[i];
@@ -152,7 +166,7 @@ router.get(
       }
 
       // Get spreadsheet metadata
-      const spreadsheetInfo = await sheetsClient.getSpreadsheetInfo();
+      const spreadsheetInfo = await getSheetsClient().getSpreadsheetInfo();
       const projectInfo = {
         ...projectConfig,
         spreadsheet_title: spreadsheetInfo.title,
@@ -188,14 +202,14 @@ router.put(
       const { projectId } = req.params;
       const { storage_provider, originals_root_url, proxies_root_url } = req.body;
 
-      if (!(await sheetsClient.validateConnection())) {
+      if (!(await getSheetsClient().validateConnection())) {
         return res.status(503).json({
           success: false,
           error: 'Unable to connect to Google Sheets API'
         } as ApiResponse<null>);
       }
 
-      if (!(await sheetsClient.sheetExists('project_meta'))) {
+      if (!(await getSheetsClient().sheetExists('project_meta'))) {
         return res.status(404).json({
           success: false,
           error: `Project '${projectId}' not found`
@@ -203,7 +217,7 @@ router.put(
       }
 
       // Load current config row
-      const metaData = await sheetsClient.getSheetData('project_meta');
+      const metaData = await getSheetsClient().getSheetData('project_meta');
       let currentConfig: ProjectConfig | null = null;
       for (let i = 1; i < metaData.values.length; i++) {
         const row = metaData.values[i];
@@ -234,7 +248,7 @@ router.put(
       };
 
       // Validate
-      const validation = initService.validateProjectConfig(updatedConfig);
+      const validation = getInitService().validateProjectConfig(updatedConfig);
       if (!validation.valid) {
         return res.status(400).json({
           success: false,
@@ -277,7 +291,7 @@ router.put(
       }
 
       if (updates.length) {
-        await sheetsClient.batchUpdate({ updates });
+        await getSheetsClient().batchUpdate({ updates });
       }
 
       return res.status(200).json({
@@ -305,7 +319,7 @@ router.get(
   '/templates/list',
   (req: Request, res: Response) => {
     try {
-      const templates = initService.getProjectTemplates();
+      const templates = getInitService().getProjectTemplates();
       return res.status(200).json({
         success: true,
         data: templates,
@@ -323,6 +337,65 @@ router.get(
 );
 
 /**
+ * GET /projects
+ * List all available projects
+ */
+router.get(
+  '/',
+  async (req: Request, res: Response): Promise<Response | void> => {
+    try {
+      if (!(await getSheetsClient().validateConnection())) {
+        return res.status(503).json({
+          success: false,
+          error: 'Unable to connect to Google Sheets API'
+        } as ApiResponse<null>);
+      }
+
+      // Ensure the project_meta sheet exists
+      if (!(await getSheetsClient().sheetExists('project_meta'))) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: 'No projects found'
+        } as ApiResponse<ProjectConfig[]>);
+      }
+
+      // Read the meta sheet
+      const metaData = await getSheetsClient().getSheetData('project_meta');
+      const projects: ProjectConfig[] = [];
+      
+      // Skip header row (index 0)
+      for (let i = 1; i < metaData.values.length; i++) {
+        const row = metaData.values[i];
+        if (row && row.length >= 5) {
+          projects.push({
+            project_id: row[0],
+            storage_provider: row[1],
+            originals_root_url: row[2],
+            proxies_root_url: row[3],
+            created_at: new Date(row[4])
+          });
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: projects,
+        message: `Retrieved ${projects.length} projects`
+      } as ApiResponse<ProjectConfig[]>);
+
+    } catch (error) {
+      console.error('Error listing projects:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to list projects',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      } as ApiResponse<null>);
+    }
+  }
+);
+
+/**
  * GET /projects/:projectId/status
  * Return health/status info about the spreadsheet and sheets
  */
@@ -332,14 +405,14 @@ router.get(
     try {
       const { projectId } = req.params;
 
-      if (!(await sheetsClient.validateConnection())) {
+      if (!(await getSheetsClient().validateConnection())) {
         return res.status(503).json({
           success: false,
           error: 'Unable to connect to Google Sheets API'
         } as ApiResponse<null>);
       }
 
-      const spreadsheetInfo = await sheetsClient.getSpreadsheetInfo();
+      const spreadsheetInfo = await getSheetsClient().getSpreadsheetInfo();
       const requiredSheets = [
         'Shots',
         'Assets',
@@ -359,7 +432,7 @@ router.get(
       const sheetStats: Record<string, number> = {};
       for (const s of spreadsheetInfo.sheets) {
         if (requiredSheets.includes(s)) {
-          sheetStats[s] = await sheetsClient.getRowCount(s);
+          sheetStats[s] = await getSheetsClient().getRowCount(s);
         }
       }
 
